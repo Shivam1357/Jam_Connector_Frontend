@@ -1,6 +1,7 @@
+// src/contexts/UserContext.js
 'use client'
 import { createContext, useContext, useState, useEffect } from 'react'
-import { userService } from '@/services/userService'
+import { profileService } from '@/services/profileService'
 import { useAuth } from './AuthContext'
 
 const UserContext = createContext()
@@ -24,7 +25,7 @@ export function UserProvider({ children }) {
     setLoading(true)
     setError(null)
     try {
-      const response = await userService.getProfile()
+      const response = await profileService.getProfile()
       setProfile(response.data)
     } catch (error) {
       setError(error.response?.data?.message || 'Failed to fetch profile')
@@ -37,11 +38,15 @@ export function UserProvider({ children }) {
     setLoading(true)
     setError(null)
     try {
-      const response = await userService.updateProfile(profileData)
+      const response = await profileService.updateProfile(profileData)
       setProfile(response.data)
       
-      // Update user in localStorage if needed
-      const updatedUser = { ...authUser, ...response.data }
+      // Update auth user in localStorage if needed (basic fields only)
+      const updatedUser = { 
+        ...authUser, 
+        name: response.data.name,
+        role: response.data.role 
+      }
       localStorage.setItem('user', JSON.stringify(updatedUser))
       
       return { success: true, data: response.data }

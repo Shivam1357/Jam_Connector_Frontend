@@ -1,14 +1,16 @@
-import apiClient from "@/lib/api";
-
+// src/services/profileService.js
+import apiClient from '@/lib/api'
 
 export const profileService = {
-    updateProfile: async (profileData) => {
-        const response = apiClient.put('/profile', profileData);
-        return response;
-    },
+  // Update profile - JWT token automatically added by apiClient interceptor
+  updateProfile: async (profileData) => {
+    const response = await apiClient.put('/profile', profileData)
+    return response
+  },
 
-    getProfile: async () => {
-        const response = apiClient.get('/profile', profileData);
-        return response;
-    }
+  // Get profile - JWT token automatically added by apiClient interceptor
+  getProfile: async () => {
+    const response = await apiClient.get('/profile')
+    return response
+  }
 }

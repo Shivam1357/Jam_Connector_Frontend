@@ -99,12 +99,13 @@ export default function Signup() {
         // Registration successful, redirect will happen automatically via useEffect
         console.log('Registration successful');
       } else {
+        console.log(result.error);
         setError(result.error);
       }
       
     } catch (error) {
       console.error('Registration error:', error);
-      setError('Registration failed. Please try again.');
+      setError(error);
     } finally {
       setIsLoading(false);
     }
