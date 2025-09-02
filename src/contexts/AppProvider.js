@@ -7,7 +7,7 @@ export default function AppProvider({ children }){
     return (
         <AuthProvider>
             <UserProvider>
-                {children}
+                    {children}
             </UserProvider>
         </AuthProvider>
     )

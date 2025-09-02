@@ -7,7 +7,7 @@ import { useUser } from '@/contexts/UserContext';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const { profile, loading: userLoading, updateProfile } = useUser();
   const [isLoading, setIsLoading] = useState(false);
   const [profileData, setProfileData] = useState({
@@ -35,10 +35,10 @@ export default function ProfilePage() {
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
+    if (!loading && !isAuthenticated) {
+      router.replace('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, loading]);
 
   // Load mock data and set profile data when profile is fetched
   useEffect(() => {
@@ -192,7 +192,7 @@ export default function ProfilePage() {
   };
 
    // Show loading while profile is being fetched
-  if (userLoading) {
+  if (userLoading || loading) {
     return (
       <div className="bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] text-white min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -202,6 +202,8 @@ export default function ProfilePage() {
       </div>
     );
   }
+
+
 
 
   return (
