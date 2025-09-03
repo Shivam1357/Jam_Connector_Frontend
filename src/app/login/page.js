@@ -90,7 +90,7 @@ export default function Login() {
         {/* Header */}
         <div className="text-center mb-8">
           <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
-            Welcome Back! hello
+            Welcome Back!
           </h2>
           <h3 className="text-2xl md:text-3xl font-semibold mb-2 text-gray-200">
             Champ 🎵

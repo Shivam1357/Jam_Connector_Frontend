@@ -1,25 +1,27 @@
+// src/contexts/NotificationContext.js
 'use client'
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useRef } from 'react'
 
 const NotificationContext = createContext()
 
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([])
+  const timeoutRefs = useRef({})
 
   const addNotification = (notification) => {
     const id = Date.now().toString()
     const newNotification = {
       id,
-      type: 'info', // info, success, warning, error
+      type: 'info',
       duration: 5000,
       ...notification
     }
 
     setNotifications(prev => [...prev, newNotification])
 
-    // Auto remove after duration
+    // Auto remove after duration (with proper cleanup)
     if (newNotification.duration > 0) {
-      setTimeout(() => {
+      timeoutRefs.current[id] = setTimeout(() => {
         removeNotification(id)
       }, newNotification.duration)
     }
@@ -28,10 +30,19 @@ export function NotificationProvider({ children }) {
   }
 
   const removeNotification = (id) => {
+    // Clear timeout if exists
+    if (timeoutRefs.current[id]) {
+      clearTimeout(timeoutRefs.current[id])
+      delete timeoutRefs.current[id]
+    }
+
     setNotifications(prev => prev.filter(n => n.id !== id))
   }
 
-  const clearAll = () => {
+  const clearAllNotification = () => {
+    // Clear all timeouts
+    Object.values(timeoutRefs.current).forEach(clearTimeout)
+    timeoutRefs.current = {}
     setNotifications([])
   }
 
@@ -40,7 +51,7 @@ export function NotificationProvider({ children }) {
     addNotification({ type: 'success', message, ...options })
 
   const showError = (message, options = {}) => 
-    addNotification({ type: 'error', message, duration: 0, ...options })
+    addNotification({ type: 'error', message, ...options })
 
   const showWarning = (message, options = {}) => 
     addNotification({ type: 'warning', message, ...options })
@@ -52,7 +63,7 @@ export function NotificationProvider({ children }) {
     notifications,
     addNotification,
     removeNotification,
-    clearAll,
+    clearAllNotification,
     showSuccess,
     showError,
     showWarning,

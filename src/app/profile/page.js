@@ -5,10 +5,16 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 
+import { genresList } from "@/data/genres";
+import { instrumentsList } from "@/data/instruments";
+import { useNotification } from "@/contexts/NotificationContext";
+
+
 export default function ProfilePage() {
   const router = useRouter();
   const { user, isAuthenticated, loading } = useAuth();
   const { profile, loading: userLoading, updateProfile } = useUser();
+  const { showError, showSuccess, clearAllNotification } = useNotification();
   const [isLoading, setIsLoading] = useState(false);
   const [profileData, setProfileData] = useState({
     name: '',
@@ -44,36 +50,8 @@ export default function ProfilePage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Mock genres and instruments
-        const mockGenres = [
-          { id: 1, name: 'Rock', description: 'Heavy guitar-driven music', imageUrl: '/genres/rock.jpg' },
-          { id: 2, name: 'Jazz', description: 'Improvised musical style', imageUrl: '/genres/jazz.jpg' },
-          { id: 3, name: 'Classical', description: 'Traditional orchestral music', imageUrl: '/genres/classical.jpg' },
-          { id: 4, name: 'Pop', description: 'Popular mainstream music', imageUrl: '/genres/pop.jpg' },
-          { id: 5, name: 'Hip-Hop', description: 'Rhythmic spoken lyrics', imageUrl: '/genres/hiphop.jpg' },
-          { id: 6, name: 'Blues', description: 'Soulful expressive music', imageUrl: '/genres/blues.jpg' },
-          { id: 7, name: 'Electronic', description: 'Digital and synthesized music', imageUrl: '/genres/electronic.jpg' },
-          { id: 8, name: 'Country', description: 'Rural American folk music', imageUrl: '/genres/country.jpg' },
-          { id: 9, name: 'R&B', description: 'Rhythm and blues', imageUrl: '/genres/rnb.jpg' },
-          { id: 10, name: 'Reggae', description: 'Jamaican rhythmic music', imageUrl: '/genres/reggae.jpg' }
-        ];
-
-        const mockInstruments = [
-          { id: 1, name: 'Guitar', description: 'Stringed musical instrument', imageUrl: '/instruments/guitar.jpg' },
-          { id: 2, name: 'Piano', description: 'Keyboard instrument', imageUrl: '/instruments/piano.jpg' },
-          { id: 3, name: 'Drums', description: 'Percussion instrument set', imageUrl: '/instruments/drums.jpg' },
-          { id: 4, name: 'Violin', description: 'Bowed string instrument', imageUrl: '/instruments/violin.jpg' },
-          { id: 5, name: 'Bass Guitar', description: 'Low-pitched guitar', imageUrl: '/instruments/bass.jpg' },
-          { id: 6, name: 'Saxophone', description: 'Woodwind instrument', imageUrl: '/instruments/saxophone.jpg' },
-          { id: 7, name: 'Trumpet', description: 'Brass wind instrument', imageUrl: '/instruments/trumpet.jpg' },
-          { id: 8, name: 'Flute', description: 'Woodwind instrument', imageUrl: '/instruments/flute.jpg' },
-          { id: 9, name: 'Cello', description: 'Large string instrument', imageUrl: '/instruments/cello.jpg' },
-          { id: 10, name: 'Vocals', description: 'Human voice as instrument', imageUrl: '/instruments/vocals.jpg' }
-        ];
-
-        setGenres(mockGenres);
-        setInstruments(mockInstruments);
-
+        setGenres(genresList);
+        setInstruments(instrumentsList);
       } catch (error) {
         console.error('Error loading data:', error);
       }
@@ -85,6 +63,7 @@ export default function ProfilePage() {
   // Update form data when profile is loaded from backend
   useEffect(() => {
     if (profile) {
+      // clearAllNotification();
       setProfileData({
         name: profile.name || '',
         email: profile.email || '',
@@ -104,6 +83,11 @@ export default function ProfilePage() {
         }
       });
     } else if (user) {
+        // if (!profile && !userLoading && !loading){
+        //   showError("Error loading profile. Please try refreshing the page.");
+        // }
+      // console.log("noooo");
+
       // Fallback to auth user data if profile not loaded yet
       setProfileData(prev => ({
         ...prev,
@@ -113,6 +97,7 @@ export default function ProfilePage() {
       }));
     }
   }, [profile, user]);
+
 
   // Handle input changes for basic fields
   const handleInputChange = (e) => {
@@ -178,14 +163,17 @@ export default function ProfilePage() {
       const result = await updateProfile(profileData);
       
       if (result.success) {
-        alert('Profile updated successfully!');
+        showSuccess('Profile updated successfully!');
+        // alert();
       } else {
-        alert(`Failed to update profile: ${result.error}`);
+        showError(`Failed to update profile: ${result.error}`);
+        // alert();
       }
       
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Failed to update profile. Please try again.');
+      showError('Failed to update profile. Please try again.');
+      // alert();
     } finally {
       setIsLoading(false);
     }
