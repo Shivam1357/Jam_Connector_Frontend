@@ -8,6 +8,8 @@ import { useUser } from '@/contexts/UserContext';
 import { genresList } from "@/data/genres";
 import { instrumentsList } from "@/data/instruments";
 import { useNotification } from "@/contexts/NotificationContext";
+import { FaInstagram, FaSpotify, FaYoutube, FaTwitter, FaTiktok } from 'react-icons/fa';
+
 
 
 export default function ProfilePage() {
@@ -32,7 +34,13 @@ export default function ProfilePage() {
       state: '',
       country: '',
       postalCode: ''
-    }
+    },
+    instagramUrl: '',
+    spotifyUrl: '',
+    youtubeUrl: '',
+    twitterUrl: '',
+    tiktokUrl: '',
+    yearsOfExperience: ''
   });
 
   // Mock data for genres and instruments
@@ -80,7 +88,13 @@ export default function ProfilePage() {
           state: '',
           country: '',
           postalCode: ''
-        }
+        },
+        instagramUrl: profile.instagramUrl || '',
+        spotifyUrl: profile.spotifyUrl || '',
+        youtubeUrl: profile.youtubeUrl || '',
+        twitterUrl: profile.twitterUrl || '',
+        tiktokUrl: profile.tiktokUrl || '',
+        yearsOfExperience: profile.yearsOfExperience || ''
       });
     } else if (user) {
         // if (!profile && !userLoading && !loading){
@@ -119,6 +133,20 @@ export default function ProfilePage() {
       }
     }));
   };
+
+    // New function to open URL safely or show alert
+  const openLink = (url) => {
+    if (url) {
+      let linkedUrl = url;
+      if (!/^https?:\/\//i.test(linkedUrl)) {
+        linkedUrl = "https://" + linkedUrl;
+      }
+      window.open(linkedUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      alert('Please enter a valid URL/handle first');
+    }
+  };
+
 
   // Handle genre toggle
   const handleGenreToggle = (genreName) => {
@@ -495,6 +523,63 @@ export default function ProfilePage() {
               />
             </div>
           </div>
+
+          {/* Years of Experience */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Years of Experience
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              name="yearsOfExperience"
+              value={profileData.yearsOfExperience}
+              onChange={handleInputChange}
+              placeholder="Years of Experience"
+              className="w-full p-3 rounded-xl bg-white/20 backdrop-blur-sm text-white placeholder-gray-400 border border-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50 transition-all duration-300"
+            />
+          </div>
+
+
+          {/* Social Media Handles Section */}
+          <div>
+            <h3 className="text-xl font-semibold text-pink-400 border-b border-pink-400/30 pb-2 mb-4 flex items-center gap-2">
+              🌐 Social Media & Experience
+            </h3>
+            <div className="space-y-4 max-w-md">
+              {[
+                { label: 'Instagram', name: 'instagramUrl', placeholder: 'instagram.com/yourhandle', Icon: FaInstagram },
+                { label: 'Spotify', name: 'spotifyUrl', placeholder: 'spotify.com/artist/yourid', Icon: FaSpotify },
+                { label: 'YouTube', name: 'youtubeUrl', placeholder: 'youtube.com/channel/yourid', Icon: FaYoutube },
+                { label: 'Twitter', name: 'twitterUrl', placeholder: 'twitter.com/yourhandle', Icon: FaTwitter },
+                { label: 'TikTok', name: 'tiktokUrl', placeholder: 'tiktok.com/@yourhandle', Icon: FaTiktok },
+              ].map(({ label, name, placeholder, Icon }) => (
+                <div key={name} className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    name={name}
+                    value={profileData[name]}
+                    onChange={handleInputChange}
+                    placeholder={placeholder}
+                    className="flex-grow p-3 rounded-xl bg-white/20 backdrop-blur-sm text-white placeholder-gray-400 border border-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50 transition-all duration-300"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => openLink(profileData[name])}
+                    className="text-pink-500 hover:text-pink-400 text-2xl p-2 rounded-full transition-colors"
+                    aria-label={`Open ${label} profile`}
+                    title={`Open ${label} profile`}
+                  >
+                    <Icon />
+                  </button>
+                </div>
+              ))}
+
+              
+            </div>
+          </div>  
+
 
           {/* Save Button */}
           <div className="pt-4">

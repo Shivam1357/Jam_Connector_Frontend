@@ -13,6 +13,38 @@ export default function Dashboard() {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false) // Modal state
 
+  const [liveSessions, setLiveSessions] = useState([])
+  const [liveSessionsLoading, setLiveSessionsLoading] = useState(true)
+  const [liveSessionsError, setLiveSessionsError] = useState(null)
+
+
+  // Fetch live sessions
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchLiveSessions()
+    }
+  }, [isAuthenticated, showCreateModal]);
+
+  const fetchLiveSessions = async () => {
+    try {
+      setLiveSessionsLoading(true)
+      setLiveSessionsError(null)
+      const data = await sessionService.getUpcomingSessions()
+      console.log(data);
+
+      // Filter for upcoming sessions and take only first 2 for display
+      const upcomingSessions = data.filter(session => session.status === 'UPCOMING');
+      setLiveSessions(upcomingSessions)
+    } catch (error) {
+      console.error('Failed to fetch live sessions:', error)
+      setLiveSessionsError('Failed to load sessions')
+    } finally {
+      setLiveSessionsLoading(false)
+    }
+  }
+
+
+
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -41,7 +73,7 @@ export default function Dashboard() {
       // TODO: Call your session creation API here
       const result = await sessionService.createSession(sessionData)
       console.log(result);
-      // setShowCreateModal(false);
+      setShowCreateModal(false);
       alert('Session created successfully!')
       // Optionally refresh session list
     } catch (error) {
@@ -173,36 +205,142 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Join Session Section */}
+        {/* Join Session Section - DYNAMIC VERSION */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <div className="lg:col-span-2 bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
             <h3 className="text-2xl font-semibold mb-6 flex items-center gap-2">
               <span>🎵</span>
               Join a Session
             </h3>
+            
+            {/* DYNAMIC CONTENT */}
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gradient-to-br from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-xl p-4">
-                  <h4 className="font-semibold mb-2">🎸 Rock Session</h4>
-                  <p className="text-sm text-gray-300 mb-3">2/5 musicians • Started 10min ago</p>
-                  <button className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg text-sm transition-colors">
-                    Join Now
+              {liveSessionsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                  <span className="text-gray-400">Loading sessions...</span>
+                </div>
+              ) : liveSessionsError ? (
+                <div className="text-center py-8 text-red-400">
+                  <p>{liveSessionsError}</p>
+                  <button 
+                    onClick={fetchLiveSessions}
+                    className="mt-2 text-orange-500 hover:text-orange-400 underline"
+                  >
+                    Try again
                   </button>
                 </div>
-                <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-4">
-                  <h4 className="font-semibold mb-2">🎤 Vocals Practice</h4>
-                  <p className="text-sm text-gray-300 mb-3">4/8 members • Live now</p>
-                  <button className="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg text-sm transition-colors">
-                    Join Now
-                  </button>
+              ) : liveSessions.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <p>No active sessions right now</p>
+                  <p className="text-sm mt-1">Create your own session to get started!</p>
                 </div>
-              </div>
-              <button className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-105">
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {liveSessions.slice(0,2).map((session) => {
+                      const getGenreStyle = (genreName) => {
+                        switch (genreName?.toLowerCase()) {
+                          case 'rock':
+                            return {
+                              gradient: 'from-orange-500/20 to-red-500/20',
+                              border: 'border-orange-500/30',
+                              button: 'from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700',
+                              progress: 'from-orange-400 to-red-400',
+                              emoji: '🎸'
+                            }
+                          case 'jazz':
+                            return {
+                              gradient: 'from-purple-500/20 to-pink-500/20',
+                              border: 'border-purple-500/30',
+                              button: 'from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700',
+                              progress: 'from-purple-400 to-pink-400',
+                              emoji: '🎤'
+                            }
+                          case 'classical':
+                            return {
+                              gradient: 'from-blue-500/20 to-indigo-500/20',
+                              border: 'border-blue-500/30',
+                              button: 'from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700',
+                              progress: 'from-blue-400 to-indigo-400',
+                              emoji: '🎼'
+                            }
+                          default:
+                            return {
+                              gradient: 'from-gray-500/20 to-slate-500/20',
+                              border: 'border-gray-500/30',
+                              button: 'from-gray-500 to-slate-600 hover:from-gray-600 hover:to-slate-700',
+                              progress: 'from-gray-400 to-slate-400',
+                              emoji: '🎵'
+                            }
+                        }
+                      }
+
+                      const style = getGenreStyle(session.genre?.name)
+                      const isLive = new Date(session.dateTime) <= new Date()
+                      const currentParticipants = Math.floor(Math.random() * session.maxParticipants) // Mock current participants
+                      const progressPercentage = (currentParticipants / session.maxParticipants) * 100
+
+                      return (
+                        <div 
+                          style={{cursor:'pointer'}}
+                          onClick={() => router.push(`/sessions/${session.id}`)}
+                          key={session.id} 
+                          className={`bg-gradient-to-br ${style.gradient} border ${style.border} rounded-xl p-4 hover:shadow-lg hover:shadow-${session.genre?.name?.toLowerCase() || 'gray'}-500/20 transition-all duration-300`}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold flex items-center gap-2">
+                              <span>{style.emoji}</span>
+                              <span className="truncate">{session.title}</span>
+                            </h4>
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              isLive 
+                                ? 'bg-green-500/20 text-green-300' 
+                                : 'bg-blue-500/20 text-blue-300'
+                            }`}>
+                              {isLive ? 'Live' : 'Soon'}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm text-gray-300">
+                              {currentParticipants}/{session.maxParticipants} musicians
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {isLive ? 'Live now' : new Date(session.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </p>
+                          </div>
+                          
+                          <div className="w-full bg-gray-700/50 rounded-full h-2 mb-3">
+                            <div 
+                              className={`bg-gradient-to-r ${style.progress} h-2 rounded-full transition-all duration-300`} 
+                              style={{width: `${progressPercentage}%`}}
+                            ></div>
+                          </div>
+                          
+                          {/* <button 
+                            onClick={() => alert(`Joining ${session.title}...`)}
+                            className={`w-full bg-gradient-to-r ${style.button} text-white py-2 px-4 rounded-lg text-sm font-medium transition-all duration-300 transform hover:scale-[1.02]`}
+                          >
+                            Join Now
+                          </button> */}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+              
+              <button 
+                onClick={() => router.push('/sessions')}
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.01] flex items-center justify-center gap-2"
+              >
                 🔍 Browse All Sessions
               </button>
             </div>
           </div>
         </div>
+
 
         {/* Recent Sessions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
