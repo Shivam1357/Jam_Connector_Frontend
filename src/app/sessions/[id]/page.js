@@ -126,7 +126,7 @@ export default function SessionPage({ params }) {
         <div className="text-center text-white">
           <div className="bg-gray-500/10 border border-gray-500/30 rounded-xl p-6 max-w-md">
             <h2 className="text-xl font-bold text-gray-400 mb-2">Session Not Found</h2>
-            <p className="text-gray-300 mb-4">The session you're looking for doesn&apos;t exist.</p>
+            <p className="text-gray-300 mb-4">The session you&apos;re looking for doesn&apos;t exist.</p>
             <button 
               onClick={handleBackToDashboard}
               className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
