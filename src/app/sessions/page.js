@@ -221,7 +221,7 @@ const SessionsPage = () => {
               <span className="text-sm text-gray-300">Active filters:</span>
               {searchQuery && (
                 <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm">
-                  Search: "{searchQuery}"
+                  Search: &quot;{searchQuery}&quot;
                 </span>
               )}
               {selectedGenre && (
