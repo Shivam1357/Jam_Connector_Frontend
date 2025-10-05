@@ -1,6 +1,6 @@
 // src/contexts/NotificationContext.js
 'use client'
-import { createContext, useContext, useState, useRef } from 'react'
+import { createContext, useContext, useState, useRef, useCallback } from 'react'
 
 const NotificationContext = createContext()
 
@@ -8,8 +8,19 @@ export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([])
   const timeoutRefs = useRef({})
 
-  const addNotification = (notification) => {
-    const id = Date.now().toString()
+  // Use useCallback to memoize functions and prevent infinite re-renders
+  const removeNotification = useCallback((id) => {
+    // Clear timeout if exists
+    if (timeoutRefs.current[id]) {
+      clearTimeout(timeoutRefs.current[id])
+      delete timeoutRefs.current[id]
+    }
+
+    setNotifications(prev => prev.filter(n => n.id !== id))
+  }, [])
+
+  const addNotification = useCallback((notification) => {
+    const id = Date.now().toString() + Math.random().toString(36) // Better unique ID
     const newNotification = {
       id,
       type: 'info',
@@ -27,38 +38,29 @@ export function NotificationProvider({ children }) {
     }
 
     return id
-  }
+  }, [removeNotification])
 
-  const removeNotification = (id) => {
-    // Clear timeout if exists
-    if (timeoutRefs.current[id]) {
-      clearTimeout(timeoutRefs.current[id])
-      delete timeoutRefs.current[id]
-    }
-
-    setNotifications(prev => prev.filter(n => n.id !== id))
-  }
-
-  const clearAllNotification = () => {
+  const clearAllNotification = useCallback(() => {
     // Clear all timeouts
     Object.values(timeoutRefs.current).forEach(clearTimeout)
     timeoutRefs.current = {}
     setNotifications([])
-  }
+  }, [])
 
-  // Helper methods
-  const showSuccess = (message, options = {}) => 
-    addNotification({ type: 'success', message, ...options })
+  // Helper methods - memoized to prevent re-renders
+  const showSuccess = useCallback((message, options = {}) => 
+    addNotification({ type: 'success', message, ...options }), [addNotification])
 
-  const showError = (message, options = {}) => 
-    addNotification({ type: 'error', message, ...options })
+  const showError = useCallback((message, options = {}) => 
+    addNotification({ type: 'error', message, ...options }), [addNotification])
 
-  const showWarning = (message, options = {}) => 
-    addNotification({ type: 'warning', message, ...options })
+  const showWarning = useCallback((message, options = {}) => 
+    addNotification({ type: 'warning', message, ...options }), [addNotification])
 
-  const showInfo = (message, options = {}) => 
-    addNotification({ type: 'info', message, ...options })
+  const showInfo = useCallback((message, options = {}) => 
+    addNotification({ type: 'info', message, ...options }), [addNotification])
 
+  // Memoize the context value to prevent unnecessary re-renders
   const value = {
     notifications,
     addNotification,

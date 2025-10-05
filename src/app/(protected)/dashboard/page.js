@@ -44,15 +44,6 @@ export default function Dashboard() {
   }
 
 
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.push('/login')
-    }
-  }, [isAuthenticated, loading, router]);
-
-
   const handleLogout = async () => {
     setIsLoggingOut(true)
     await logout()
@@ -94,16 +85,6 @@ export default function Dashboard() {
     )
   }
 
-  // Show redirecting state
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] flex items-center justify-center">
-        <div className="text-center text-white">
-          <p>Redirecting to login...</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] text-white">
@@ -343,7 +324,7 @@ export default function Dashboard() {
 
 
         {/* Recent Sessions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
             <h3 className="text-xl font-semibold mb-4">Recent Sessions</h3>
             <div className="space-y-4">
@@ -364,7 +345,7 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-        </div>
+        </div> */}
       </main>
 
       {/* Create Session Modal */}

@@ -25,7 +25,7 @@ export default function Signup() {
   // Redirect if already logged in
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      router.push('/dashboard');
+      router.replace('/dashboard');
     }
   }, [isAuthenticated, loading, router]);
 

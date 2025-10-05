@@ -62,6 +62,48 @@ export function AuthProvider({ children }) {
         }
     }
 
+   const googleLoginBackend = async (idToken) => {
+    try {
+      setLoading(true);
+      
+      // Call the service with just the data - authService handles the HTTP details
+      console.log(idToken);
+      const response = await authService.googleLogin({ idToken });
+      
+      // authService.googleLogin returns the axios response, data is in response.data
+      if (response.data) {
+        localStorage.setItem('token', response.data.token);
+        setUser(response.data.user);
+        // setIsAuthenticated(true);
+        return { success: true };
+      } else {
+        return { success: false, error: 'Google login failed' };
+      }
+    } catch (error) {
+      console.error('Google login error:', error);
+      // Handle axios error response
+      const errorMessage = error.response?.data?.message || error.message || 'Network error occurred';
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const forgotPassword = async (data) =>{
+    try {
+        const response = await authService.forgotPassword(data)
+        return { success: true}
+    } catch (error) {
+        return { 
+        success: false, 
+        error: 'Failed'
+        }
+    }
+  }
+
+
+
+
 
   // Logout function
   const logout = () => {
@@ -76,6 +118,8 @@ export function AuthProvider({ children }) {
     login,
     register,
     logout,
+    googleLoginBackend,
+    forgotPassword,
     isAuthenticated: !!user
   }
 

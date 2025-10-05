@@ -184,8 +184,6 @@ export default function SessionPage({ params }) {
                 </span>
               </div>
             </div>
-            
-           
           </div>
 
            {session.coverImagePublicId && (

@@ -18,7 +18,7 @@ export const sessionService = {
       throw error;
     }
   },
-
+ 
   // Get all jam sessions
   getUpcomingSessions: async () => {
     const response = await apiClient.get('/jam-sessions/upcoming')

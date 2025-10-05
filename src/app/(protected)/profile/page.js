@@ -9,7 +9,7 @@ import { genresList } from "@/data/genres";
 import { instrumentsList } from "@/data/instruments";
 import { useNotification } from "@/contexts/NotificationContext";
 import { FaInstagram, FaSpotify, FaYoutube, FaTwitter, FaTiktok } from 'react-icons/fa';
-
+import ProfilePictureImage from "@/components/ProfilePictureImage";
 
 
 export default function ProfilePage() {
@@ -47,13 +47,6 @@ export default function ProfilePage() {
   const [genres, setGenres] = useState([]);
   const [instruments, setInstruments] = useState([]);
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.replace('/login');
-    }
-  }, [isAuthenticated, router, loading]);
-
   // Load mock data and set profile data when profile is fetched
   useEffect(() => {
     const loadData = async () => {
@@ -72,11 +65,14 @@ export default function ProfilePage() {
   useEffect(() => {
     if (profile) {
       // clearAllNotification();
+      console.log(profile);
       setProfileData({
         name: profile.name || '',
         email: profile.email || '',
         phoneNumber: profile.phoneNumber || '',
+        profilePictureId : profile.profilePictureId,
         profilePictureUrl: profile.profilePictureUrl || '',
+        profilePictureFile: null,
         bio: profile.bio || '',
         role: profile.role || 'LISTENER',
         selectedGenres: profile.selectedGenres || [],
@@ -175,49 +171,96 @@ export default function ProfilePage() {
       console.log('File selected:', file);
       setProfileData(prev => ({
         ...prev,
+        profilePictureFile: file, 
         profilePictureUrl: file.name
       }));
     }
   };
 
-  // Handle form submission
+
+  // Handle form submission with FormData for file upload
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // setIsLoading(true);
+    e.stopPropagation();
+  
+    // Prevent multiple submissions
+    if (isLoading) return;
+    
     setIsLoading(true);
 
+    console.log(profileData);
     try {
       console.log('Updating complete profile:', profileData);
       
-      const result = await updateProfile(profileData);
+      // Create FormData object for file upload
+      const formData = new FormData();
+      
+      // Append all profile data to FormData
+      formData.append('name', profileData.name);
+      formData.append('email', profileData.email);
+      formData.append('phoneNumber', profileData.phoneNumber);
+      formData.append('bio', profileData.bio);
+      formData.append('role', profileData.role);
+      formData.append('yearsOfExperience', profileData.yearsOfExperience);
+      
+      // For arrays - Spring will automatically bind selectedGenres[0], selectedGenres[1], etc.
+      profileData.selectedGenres.forEach((genre, index) => {
+        formData.append(`selectedGenres[${index}]`, genre);
+      });
+      
+      profileData.selectedInstruments.forEach((instrument, index) => {
+        formData.append(`selectedInstruments[${index}]`, instrument);
+      });
+      
+      // For nested objects - use dot notation (address.street, address.city, etc.)
+      formData.append('address.label', profileData.address.label || '');
+      formData.append('address.street', profileData.address.street || '');
+      formData.append('address.city', profileData.address.city || '');
+      formData.append('address.state', profileData.address.state || '');
+      formData.append('address.country', profileData.address.country || '');
+      formData.append('address.postalCode', profileData.address.postalCode || '');
+      
+      // Append social media URLs
+      formData.append('instagramUrl', profileData.instagramUrl);
+      formData.append('spotifyUrl', profileData.spotifyUrl);
+      formData.append('youtubeUrl', profileData.youtubeUrl);
+      formData.append('twitterUrl', profileData.twitterUrl);
+      formData.append('tiktokUrl', profileData.tiktokUrl);
+      
+      // Append the actual file if it exists
+      if (profileData.profilePictureFile) {
+        formData.append('profilePicture', profileData.profilePictureFile);
+      }
+      
+      const result = await updateProfile(formData);
       
       if (result.success) {
         showSuccess('Profile updated successfully!');
-        // alert();
       } else {
         showError(`Failed to update profile: ${result.error}`);
-        // alert();
       }
       
     } catch (error) {
       console.error('Error updating profile:', error);
       showError('Failed to update profile. Please try again.');
-      // alert();
     } finally {
       setIsLoading(false);
     }
   };
 
-   // Show loading while profile is being fetched
-  if (userLoading || loading) {
-    return (
-      <div className="bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] text-white min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p>Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
+
+  //  // Show loading while profile is being fetched
+  // if (userLoading) {
+  //   return (
+  //     <div className="bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] text-white min-h-screen flex items-center justify-center">
+  //       <div className="text-center">
+  //         <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+  //         <p>Loading profile...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
 
 
@@ -303,7 +346,13 @@ export default function ProfilePage() {
             </h3>
             <div className="flex items-center space-x-4">
               <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-purple-600 rounded-full flex items-center justify-center text-2xl font-bold">
-                {profileData.name ? profileData.name.charAt(0).toUpperCase() : 'U'}
+                {/* {profileData.name ? profileData.name.charAt(0).toUpperCase() : 'U'} */}
+                <ProfilePictureImage 
+                  publicId={profileData.profilePictureId}
+                  name={profileData.name}
+                  size="md"
+                  alt="Profile Picture"
+                />
               </div>
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-300 mb-2">
