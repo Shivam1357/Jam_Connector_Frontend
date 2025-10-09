@@ -6,11 +6,13 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { genresList } from '@/data/genres' // Import your genres data
 import { sessionService } from '@/services/sessionService'
+import { useUser } from '@/contexts/UserContext'
+import ProfilePictureImage from '@/components/ProfilePictureImage'
 
 export default function Dashboard() {
-  const { user, isAuthenticated, loading, logout } = useAuth()
+  const { user, isAuthenticated, loading, logout } = useAuth();
   const router = useRouter()
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
+ 
   const [showCreateModal, setShowCreateModal] = useState(false) // Modal state
 
   const [liveSessions, setLiveSessions] = useState([])
@@ -21,8 +23,9 @@ export default function Dashboard() {
   // Fetch live sessions
   useEffect(() => {
     if (isAuthenticated) {
-      fetchLiveSessions()
+      fetchLiveSessions();
     }
+    console.log(user);
   }, [isAuthenticated, showCreateModal]);
 
   const fetchLiveSessions = async () => {
@@ -44,12 +47,7 @@ export default function Dashboard() {
   }
 
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true)
-    await logout()
-    router.push('/login')
-  }
-
+  
   // Handle create session modal
   const handleCreateSession = async (sessionData) => {
     try {
@@ -85,44 +83,8 @@ export default function Dashboard() {
     )
   }
 
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] text-white">
-      {/* Header - Same as before */}
-      <header className="bg-black/30 backdrop-blur-sm border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-purple-600 bg-clip-text text-transparent">
-                JamConnect
-              </h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Link 
-                  href="/profile"
-                  className="group relative cursor-pointer"
-                >
-                  <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-600 rounded-full flex items-center justify-center text-sm font-bold group-hover:shadow-lg group-hover:shadow-orange-500/30 transition-all duration-300 group-hover:scale-105">
-                    {user?.name?.charAt(0).toUpperCase()}
-                  </div>
-                </Link>
-                <span className="text-sm text-gray-300">
-                  {user?.name}
-                </span>
-              </div>
-              <button
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-              >
-                {isLoggingOut ? 'Logging out...' : 'Logout'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <div>
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
@@ -370,6 +332,7 @@ function CreateSessionModal({ onClose, onSubmit, genres }) {
     isOnlyMusicians: false,
     genre: '',
     dateTime: '',
+    durationInMinutes: 120, 
     maxParticipants: 5,
     isPublic: true,
     coverPhoto: null,
@@ -420,6 +383,16 @@ function CreateSessionModal({ onClose, onSubmit, genres }) {
     }
   }
 
+  // Convert minutes to hours and minutes for display
+  const formatDuration = (minutes) => {
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    if (hours === 0) return `${mins} min`
+    if (mins === 0) return `${hours} hr`
+    return `${hours} hr ${mins} min`
+  }
+
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -435,6 +408,7 @@ function CreateSessionModal({ onClose, onSubmit, genres }) {
       submitData.append('isOnlyMusicians', formData.isOnlyMusicians)
       submitData.append('genre', formData.genre)
       submitData.append('dateTime', formData.dateTime)
+      submitData.append('durationInMinutes', formData.durationInMinutes)
       submitData.append('maxParticipants', formData.maxParticipants)
       submitData.append('isPublic', formData.isPublic)
       
@@ -526,20 +500,57 @@ function CreateSessionModal({ onClose, onSubmit, genres }) {
             </select>
           </div>
 
-          {/* Date & Time */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Date & Time *
-            </label>
-            <input
-              type="datetime-local"
-              name="dateTime"
-              value={formData.dateTime}
-              onChange={handleChange}
-              required
-              className="w-full p-3 rounded-xl bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-300"
-            />
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Date & Time */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Date & Time *
+              </label>
+              <input
+                type="datetime-local"
+                name="dateTime"
+                value={formData.dateTime}
+                onChange={handleChange}
+                required
+                className="w-full p-3 rounded-xl bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-300"
+              />
+            </div>
+
+
+            {/* Duration */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Duration *
+                </label>
+                <div className="relative">
+                  <select
+                    name="durationInMinutes"
+                    value={formData.durationInMinutes}
+                    onChange={handleChange}
+                    required
+                    className="w-full p-3 rounded-xl bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-300 appearance-none"
+                  >
+                    <option value={30} className="bg-gray-800">30 min</option>
+                    <option value={60} className="bg-gray-800">1 hr</option>
+                    <option value={90} className="bg-gray-800">1 hr 30 min</option>
+                    <option value={120} className="bg-gray-800">2 hr</option>
+                    <option value={150} className="bg-gray-800">2 hr 30 min</option>
+                    <option value={180} className="bg-gray-800">3 hr</option>
+                    <option value={240} className="bg-gray-800">4 hr</option>
+                    <option value={300} className="bg-gray-800">5 hr</option>
+                    <option value={360} className="bg-gray-800">6 hr</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Selected: {formatDuration(formData.durationInMinutes)}
+                </p>
+              </div>
+            </div>
 
           {/* Max Participants */}
           <div>

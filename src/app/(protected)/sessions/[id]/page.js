@@ -1,24 +1,47 @@
 // src/app/sessions/[id]/page.js
 'use client'
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { sessionService } from '@/services/sessionService'
 import JamSessionImage from '@/components/JamSessionImage'
 import SocialMediaLinks from '@/components/SocialMediaLinks'
+import { useAuth } from '@/contexts/AuthContext'
+import { formatDuration } from '@/hooks/formatDuration'
+import HostModal from '@/components/HostModal'
+import ProfilePictureImage from '@/components/ProfilePictureImage'
+import { useNotification } from '@/contexts/NotificationContext'
 
 export default function SessionPage({ params }) {
-  const { id } = params;
-  const router = useRouter()
+  const { id } = use(params);
+  // const { id } = params;
+  const router = useRouter();
+  const { showSuccess, showError } = useNotification();
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null);
-
+  const { user } = useAuth();
 
 	const [isHostModalOpen, setIsHostModalOpen] = useState(false);
+  const [isMySession, setIsMySession] = useState(false);
+
+  const [joining, setJoining] = useState(false);
+
+  const [userJoinStatus, setUserJoinStatus] = useState(null);
+
+
+    // Add these states after your existing state declarations
+  const [receivedInvitations, setReceivedInvitations] = useState([])
+  const [showInvitationModal, setShowInvitationModal] = useState(false)
+  const [selectedInvitation, setSelectedInvitation] = useState(null)
+
+
+
 
   const openHostModal = () => {
-    setIsHostModalOpen(true);
+    if (!isMySession){
+      setIsHostModalOpen(true);
+    }
   };
 
   const closeHostModal = () => {
@@ -51,6 +74,89 @@ export default function SessionPage({ params }) {
   }, [isHostModalOpen]);
 
 
+  // useEffect(() => {
+  //   if (!id) return
+    
+  //   const fetchUserJoinStatus = async () => {
+  //     try {
+  //       setLoading(true)
+  //       setError(null)
+  //       const joinStatus = await sessionService.getMyJoinRequest(id);
+  //       console.log(joinStatus);
+  //       setUserJoinStatus(joinStatus);
+  //     } catch (err) {
+  //       console.error('Failed to fetch User Join Status:', err)
+  //       // setError('Failed to load User Join Status. Please try again.')
+  //     } finally {
+  //       setLoading(false)
+  //     }
+  //   }
+
+  //   fetchUserJoinStatus();
+  // }, [id]);
+
+  useEffect(() => {
+  if (!id) return
+  
+  const fetchUserJoinStatus = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Check for join request status
+      const joinStatus = await sessionService.getMyJoinRequest(id);
+      console.log(joinStatus);
+      setUserJoinStatus(joinStatus);
+      
+      // Also check for received invitations for this session
+      const invitations = await sessionService.getMyReceivedInvitations();
+      const sessionInvitation = invitations.find(inv => 
+        inv.sessionId == id && inv.status === 'PENDING'
+      );
+      
+      if (sessionInvitation) {
+        setSelectedInvitation(sessionInvitation);
+        setShowInvitationModal(true);
+      }
+      
+    } catch (err) {
+      console.error('Failed to fetch User Join Status:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  fetchUserJoinStatus();
+}, [id]);
+
+  const handleInvitationResponse = async (invitationId, action) => {
+    try {
+      setJoining(true);
+      
+      await sessionService.respondToInvitation(invitationId, action);
+      
+      if (action === 'ACCEPT') {
+        showSuccess(`You've joined ${session.title}!`);
+        setUserJoinStatus({ participant: true, status: 'ACCEPTED' });
+      } else {
+        showSuccess('Invitation declined');
+      }
+      
+      setShowInvitationModal(false);
+      setSelectedInvitation(null);
+      
+      // Refresh session data to update participant count
+      const sessionData = await sessionService.getById(id);
+      setSession(sessionData);
+      
+    } catch (error) {
+      console.error('Error responding to invitation:', error);
+      showError('Failed to respond to invitation');
+    } finally {
+      setJoining(false);
+    }
+  };
+
 
   useEffect(() => {
     if (!id) return
@@ -71,15 +177,62 @@ export default function SessionPage({ params }) {
     }
 
     fetchSession()
-  }, [id])
+  }, [id]);
 
-  const handleJoinSession = () => {
-    // TODO: Implement join session functionality
-    alert(`Joining session: ${session.title}`)
+  // console.log(user);
+  useEffect(() => {
+      if (session?.host?.id == user.id){
+        setIsMySession(true);
+      }
+      else{
+        setIsMySession(false);
+      }
+      // console.log(isMySession);
+  }, [session]);
+
+  // const handleJoinSession = () => {
+  //   // TODO: Implement join session functionality
+
+  //   alert(`Joining session: ${session.title}`)
+  // }
+ 
+  const handleJoinSession = async () => {
+    try {
+      setJoining(true)
+      
+      if (isMySession) {
+        // If it's my session, redirect to manage requests page
+        router.push(`/sessions/${id}/manage-requests`)
+        return
+      }
+
+      // Send join request
+      const result = await sessionService.sendJoinRequest(id, {
+        message: `Hi ${session.host.name}, I would like to join your ${session.genre?.name} session "${session.title}". Looking forward to jamming with you!`
+      })
+      
+      // Show success message
+      showSuccess(`Join request sent to ${session.host.name}! You'll be notified when they respond.`);
+      setUserJoinStatus({participant : false, status : 'PENDING'});
+      // alert()
+    } catch (error) {
+      console.error('Error sending join request:', error);
+      if (error.response?.status === 400) {
+        alert(error.response.data.error || 'Unable to send join request')
+      } else if (error.response?.status === 409) {
+        alert('You have already sent a request for this session')
+      } else {
+        showError('Failed to send join request. Please try again.');
+        // alert('Failed to send join request. Please try again.')
+      }
+    } finally {
+      setJoining(false)
+    }
   }
 
-  const handleBackToDashboard = () => {
-    router.push('/dashboard')
+
+  const handleBackToSessions = () => {
+    router.push('/sessions')
   }
 
   if (loading) {
@@ -108,7 +261,7 @@ export default function SessionPage({ params }) {
                 Try Again
               </button>
               <button 
-                onClick={handleBackToDashboard}
+                onClick={handleBackToSessions}
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
                 Go Back
@@ -128,7 +281,7 @@ export default function SessionPage({ params }) {
             <h2 className="text-xl font-bold text-gray-400 mb-2">Session Not Found</h2>
             <p className="text-gray-300 mb-4">The session you&apos;re looking for doesn&apos;t exist.</p>
             <button 
-              onClick={handleBackToDashboard}
+              onClick={handleBackToSessions}
               className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
             >
               Go Back to Dashboard
@@ -143,32 +296,81 @@ export default function SessionPage({ params }) {
   const sessionDate = new Date(session.dateTime)
   const isLive = sessionDate <= new Date() && isUpcoming
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] text-white">
-      {/* Header */}
-      <header className="bg-black/30 backdrop-blur-sm border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16">
-            <button 
-              onClick={handleBackToDashboard}
-              className="flex items-center text-gray-400 hover:text-white transition-colors mr-4"
-            >
-              ← Back to Dashboard
-            </button>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-purple-600 bg-clip-text text-transparent">
-              JamConnect
-            </h1>
+  // Add this before the return statement
+  const InvitationModal = () => {
+    if (!showInvitationModal || !selectedInvitation || !session) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+        <div className="bg-gray-800 rounded-2xl p-6 max-w-md w-full mx-4 border border-white/20">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-2xl mx-auto mb-4">
+              ✉️
+            </div>
+            
+            <h3 className="text-xl font-bold text-white mb-2">Session Invitation</h3>
+            <p className="text-gray-300 mb-4">
+              <span className="text-purple-400 font-medium">{session.host.name}</span> has invited you to join:
+            </p>
+            
+            {/* Session Info */}
+            <div className="bg-white/5 rounded-xl p-4 mb-6 text-left">
+              <h4 className="font-semibold text-white mb-2">{session.title}</h4>
+              <div className="text-sm text-gray-300 space-y-1">
+                <p><span className="text-orange-400">Genre:</span> {session.genre?.name}</p>
+                <p><span className="text-orange-400">Date:</span> {new Date(session.dateTime).toLocaleDateString()}</p>
+                <p><span className="text-orange-400">Time:</span> {new Date(session.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                <p><span className="text-orange-400">Duration:</span> {formatDuration(session.durationInMinutes)}</p>
+              </div>
+              
+              {selectedInvitation.message && (
+                <div className="mt-3 p-3 bg-white/5 rounded-lg">
+                  <p className="text-gray-300 text-sm italic">"{selectedInvitation.message}"</p>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleInvitationResponse(selectedInvitation.id, 'DECLINE')}
+                disabled={joining}
+                className="flex-1 py-3 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-xl font-medium transition-colors disabled:opacity-50"
+              >
+                Decline
+              </button>
+              <button
+                onClick={() => handleInvitationResponse(selectedInvitation.id, 'ACCEPT')}
+                disabled={joining}
+                className="flex-1 py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-medium transition-all duration-300 disabled:opacity-50"
+              >
+                {joining ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Accepting...
+                  </div>
+                ) : (
+                  'Accept & Join'
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </header>
+      </div>
+    );
+  };
 
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] text-white">
+      
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
           {/* Session Header */}
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h1 className="text-4xl font-bold mb-2">{session.title}</h1>
+              <h1 className="text-4xl font-bold mb-2">{session.title} | {formatDuration(session.durationInMinutes)}</h1>
               <div className="flex items-center gap-4 text-gray-300">
                 <span className="flex items-center gap-1">
                   🎵 {session.genre?.name}
@@ -186,16 +388,16 @@ export default function SessionPage({ params }) {
             </div>
           </div>
 
-           {session.coverImagePublicId && (
-            <div className='flex flex-1 justify-center'>
-              <div className="w-auto h-auto  max-w-md  max-h-md rounded-xl overflow-hidden border border-white/20 mb-5 ">
-                {/* TODO: Display cover image from Cloudinary */}
-                <div className="w-full h-full bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center">
-                  <JamSessionImage publicId={session.coverImagePublicId}/>
-                </div>
+          {session.coverImagePublicId && (
+          <div className='flex flex-1 justify-center'>
+            <div className="w-auto h-auto  max-w-md  max-h-md rounded-xl overflow-hidden border border-white/20 mb-5 ">
+              {/* TODO: Display cover image from Cloudinary */}
+              <div className="w-full h-full bg-gradient-to-br from-orange-500/20 to-red-500/20 flex items-center justify-center">
+                <JamSessionImage publicId={session.coverImagePublicId}/>
               </div>
             </div>
-            )}
+          </div>
+          )}
 
           {/* Session Details Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -213,9 +415,12 @@ export default function SessionPage({ params }) {
 								className="flex items-center gap-3 cursor-pointer hover:bg-gray-700 rounded-lg p-2 transition-colors"
 								onClick={openHostModal}
 								>
-								<div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-600 rounded-full flex items-center justify-center text-sm font-bold">
-										{session.host?.name?.charAt(0).toUpperCase()}
-								</div>
+                <ProfilePictureImage
+                  publicId={session.host?.profilePictureId}
+                  name={session.host?.name}
+                  size="sm"
+                  alt="Profile Picture"
+                />
 								<div>
 										<p className="font-medium">{session.host?.name}</p>
 										<p className="text-sm text-gray-400">Session Host</p>
@@ -311,112 +516,144 @@ export default function SessionPage({ params }) {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-4 pt-6 border-t border-white/10">
-            <button
-              onClick={handleJoinSession}
-              disabled={!isUpcoming}
-              className={`flex-1 py-3 px-6 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 ${
-                isUpcoming
-                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
-                  : 'bg-gray-500/50 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {isLive ? '🔴 Join Live Session' : isUpcoming ? '🚀 Join Session' : 'Session Ended'}
-            </button>
-            
-            <button
-              onClick={() => navigator.share ? navigator.share({
-                title: session.title,
-                text: `Join me at ${session.title} - ${session.genre?.name} session`,
-                url: window.location.href
-              }) : navigator.clipboard.writeText(window.location.href).then(() => alert('Link copied!'))}
-              className="bg-blue-500/20 hover:bg-blue-500/40 text-blue-300 px-6 py-3 rounded-xl font-medium transition-colors"
-            >
-              📤 Share
-            </button>
-          </div>
+          {isMySession ? 
+            <div className="flex gap-4 pt-6 border-t border-white/10">
+              <button
+                onClick={() => {router.push(`/sessions/${id}/manage?tab=requests`)}}
+                disabled={!isUpcoming}
+                className={`flex-1 py-3 px-6 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 ${
+                    'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
+                }`}
+              >
+                Approve Join Requests
+              </button>
+              
+              <button
+                onClick={() => {router.push(`/sessions/${id}/manage?tab=invite`)}}
+                className={`flex-1 py-3 px-6 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 ${
+                    'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
+                }`}              
+              >
+                Invite
+              </button>
+            </div>
+          :
+            // <div className="flex gap-4 pt-6 border-t border-white/10">
+            //   <button
+            //     disabled={userJoinStatus}
+            //     onClick={handleJoinSession}
+            //     className={`flex-1 py-3 px-6 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 ${
+            //         'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
+            //     }`}              
+            //   >
+            //     {!userJoinStatus ? "Join Session" : userJoinStatus?.participant ? "Participated" : userJoinStatus?.status}
+            //   </button>
+            // </div>
+            <div className="pt-6 border-t border-white/10">
+              {/* Status indicator */}
+              {userJoinStatus && (
+                <div className="flex items-center justify-center mb-4">
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
+                    userJoinStatus.participant
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                      : userJoinStatus.status === 'PENDING'
+                      ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+                      : userJoinStatus.status === 'DECLINED'
+                      ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                      : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                  }`}>
+                    {userJoinStatus.participant ? (
+                      <>
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        <span>You're in this session!</span>
+                      </>
+                    ) : userJoinStatus.status === 'PENDING' ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        <span>Waiting for host approval</span>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+
+              {/* Action button */}
+              <div className="flex gap-4">
+                <button
+                  disabled={userJoinStatus?.participant || userJoinStatus?.status === 'PENDING' || joining}
+                  onClick={handleJoinSession}
+                  className={`flex-1 py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-300 transform relative overflow-hidden group ${
+                    userJoinStatus?.participant
+                      ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white cursor-default opacity-75'
+                      : userJoinStatus?.status === 'PENDING'
+                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white cursor-wait opacity-75'
+                      : userJoinStatus?.status === 'DECLINED'
+                      ? 'bg-gradient-to-r from-red-500/50 to-red-600/50 hover:from-green-500 hover:to-emerald-600 text-white hover:scale-105 border-2 border-red-500/30 hover:border-green-500/30'
+                      : joining
+                      ? 'bg-gradient-to-r from-gray-500 to-gray-600 text-white cursor-wait'
+                      : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white hover:scale-105 shadow-lg hover:shadow-xl'
+                  }`}
+                >
+                  {/* Shimmer effect for active button */}
+                  {!userJoinStatus && !joining && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 group-hover:animate-pulse"></div>
+                  )}
+                  
+                  {/* Loading spinner overlay */}
+                  {joining && (
+                    <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center">
+                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                  
+                  {/* Button content */}
+                  <div className="flex items-center justify-center gap-3 relative z-10">
+                    {userJoinStatus?.participant ? (
+                      <>
+                        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        <span>Already Participating</span>
+                      </>
+                    ) : userJoinStatus?.status === 'PENDING' ? (
+                      <>
+                        <svg className="w-6 h-6 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                        </svg>
+                        <span>Request Sent</span>
+                      </>
+                    ) : joining ? (
+                      <span>Sending Request...</span>
+                    ) : (
+                      <>
+                        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+                        </svg>
+                        <span>🎵 Request to Join</span>
+                      </>
+                    )}
+                  </div>
+                </button>
+              </div>
+            </div>
+          }
         </div>
       </main>
 
+      {/* Replace your old modal with this */}
+      <HostModal
+        isOpen={isHostModalOpen}
+        onClose={closeHostModal}
+        host={session.host}
+      />
 
-			 {isHostModalOpen && session.host && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={handleBackdropClick}
-        >
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 relative">
-            {/* Close button */}
-            <button
-              onClick={closeHostModal}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white text-xl font-bold"
-            >
-              ×
-            </button>
-            
-            {/* Modal content */}
-            <div className="text-center">
-              {/* Profile picture or initial */}
-              <div className="w-20 h-20 bg-gradient-to-r from-orange-500 to-red-600 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
-                {session.host.profilePictureUrl ? (
-                  <img 
-                    src={session.host.profilePictureUrl} 
-                    alt={session.host.name}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  session.host.name?.charAt(0).toUpperCase()
-                )}
-              </div>
-              
-              {/* Host details */}
-              <h2 className="text-xl font-bold text-white mb-2">{session.host.name}</h2>
-              <p className="text-purple-400 mb-4 capitalize">{session.host.role?.toLowerCase()}</p>
-              
-              {session.host.bio && (
-                <div className="mb-4 text-left">
-                  <h3 className="text-sm font-semibold text-gray-300 mb-2">Bio</h3>
-                  <p className="text-gray-400 text-sm bg-gray-700 p-3 rounded-lg">{session.host.bio}</p>
-                </div>
-              )}
-              
-              {session.host.phoneNumber && (
-                <div className="mb-4 text-left">
-                  <h3 className="text-sm font-semibold text-gray-300 mb-2">Contact</h3>
-                  <p className="text-gray-400 text-sm bg-gray-700 p-3 rounded-lg">{session.host.phoneNumber}</p>
-                </div>
-              )}
-
-              {/* Social Media Icons Horizontal */}
-              {(session.host.instagramUrl || session.host.spotifyUrl || session.host.youtubeUrl 
-              || session.host.twitterUrl || session.host.tiktokUrl) && 
-              
-                <div className="mb-4 text-left">
-                  <h3 className="text-sm font-semibold text-gray-300 mb-2">Social Media</h3>
-                  <div className="flex items-center gap-5 justify-center">
-                    <SocialMediaLinks
-                      instagramUrl={session.host.instagramUrl}
-                      spotifyUrl={session.host.spotifyUrl}
-                      youtubeUrl={session.host.youtubeUrl}
-                      twitterUrl={session.host.twitterUrl}
-                      tiktokUrl={session.host.tiktokUrl}
-                    />
-                  </div>
-                </div>
-              }
-
-              {session.host.yearsOfExperience != null && (
-                <div className="mb-4 text-left">
-                  <h3 className="text-sm font-semibold text-gray-300 mb-2">Years of Experience</h3>
-                  <p className="text-gray-400 text-sm bg-gray-700 p-3 rounded-lg">{session.host.yearsOfExperience}</p>
-                </div>
-              )}
-
-            </div>
-          </div>
-        </div>
-      )}
+      <InvitationModal />
     </div>
 
 		
   )
 }
+
+

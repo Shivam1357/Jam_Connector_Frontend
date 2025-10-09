@@ -1,14 +1,19 @@
 // pages/sessions.js or components/SessionsPage.js
 "use client"
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { sessionService } from '@/services/sessionService'; // Adjust import path
 import { FaInstagram, FaSpotify, FaYoutube, FaTwitter, FaTiktok } from 'react-icons/fa';
 import SocialMediaLinks from '@/components/SocialMediaLinks';
+import { formatDuration } from '@/hooks/formatDuration';
+import JamSessionImage from '@/components/JamSessionImage';
+import ProfilePictureImage from '@/components/ProfilePictureImage';
+import HostModal from '@/components/HostModal';
 
 
 const SessionsPage = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [sessions, setSessions] = useState([]);
   const [filteredSessions, setFilteredSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +25,7 @@ const SessionsPage = () => {
   const [selectedCity, setSelectedCity] = useState('');
   const [isHostModalOpen, setIsHostModalOpen] = useState(false);
   const [selectedHost, setSelectedHost] = useState(null);
+  const [isOnlyMySessions, setIsOnlyMySessions] = useState(false);
 
   // Get unique genres and cities from sessions
   const [genres, setGenres] = useState([]);
@@ -27,7 +33,7 @@ const SessionsPage = () => {
 
   useEffect(() => {
     fetchAllSessions();
-  }, []);
+  }, [isOnlyMySessions]);
 
   useEffect(() => {
     filterSessions();
@@ -37,8 +43,8 @@ const SessionsPage = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await sessionService.getUpcomingSessions();
-      
+      const data =(isOnlyMySessions ?  await sessionService.getMySessions() : await sessionService.getAllSessions());
+      console.log(data);
       const upcomingSessions = data.filter(session => session.status === 'UPCOMING');
       setSessions(upcomingSessions);
       
@@ -55,6 +61,33 @@ const SessionsPage = () => {
       setLoading(false);
     }
   };
+
+// Add this useEffect to initialize from URL
+  useEffect(() => {
+    const search = searchParams.get('search') || '';
+    const genre = searchParams.get('genre') || '';
+    const city = searchParams.get('city') || '';
+    const mySessions = searchParams.get('mySessions') === 'true';
+    
+    setSearchQuery(search);
+    setSelectedGenre(genre);
+    setSelectedCity(city);
+    setIsOnlyMySessions(mySessions);
+  }, []); // Run only once on mount
+
+  // Add this function after your state declarations
+const updateURL = (params) => {
+  const url = new URLSearchParams();
+  
+  if (params.search) url.set('search', params.search);
+  if (params.genre) url.set('genre', params.genre);
+  if (params.city) url.set('city', params.city);
+  if (params.mySessions) url.set('mySessions', 'true');
+  
+  const queryString = url.toString();
+  router.push(`/sessions${queryString ? `?${queryString}` : ''}`, { scroll: false });
+};
+
 
   const filterSessions = () => {
     let filtered = sessions;
@@ -84,6 +117,9 @@ const SessionsPage = () => {
     setSearchQuery('');
     setSelectedGenre('');
     setSelectedCity('');
+    setIsOnlyMySessions(false);
+
+    router.push('/sessions', { scroll: false });
   };
 
   const getGenreStyle = (genreName) => {
@@ -133,6 +169,7 @@ const SessionsPage = () => {
     setSelectedHost(null);
   };
 
+
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
       closeHostModal();
@@ -162,14 +199,8 @@ const SessionsPage = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <button
-            onClick={() => router.back()}
-            className="mb-4 text-gray-400 hover:text-white flex items-center gap-2"
-          >
-            ← Back
-          </button>
-          <h1 className="text-4xl font-bold text-white mb-2">All Sessions</h1>
-          <p className="text-gray-400">Find and join music sessions near you</p>
+          <h1 className="text-4xl font-bold text-white mb-2">{isOnlyMySessions ? "My Sessions" : "All Sessions"}</h1>
+          <p className="text-gray-400">{!isOnlyMySessions ? "Find and join music sessions near you" : ""}</p>
         </div>
 
         {/* Search and Filters */}
@@ -181,7 +212,16 @@ const SessionsPage = () => {
                 type="text"
                 placeholder="Search by session title or host name..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSearchQuery(value);
+                  updateURL({ 
+                    search: value, 
+                    genre: selectedGenre, 
+                    city: selectedCity, 
+                    mySessions: isOnlyMySessions 
+                  });
+                }}
                 className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
               />
             </div>
@@ -190,7 +230,16 @@ const SessionsPage = () => {
             <div>
               <select
                 value={selectedGenre}
-                onChange={(e) => setSelectedGenre(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedGenre(value);
+                  updateURL({ 
+                    search: searchQuery, 
+                    genre: value, 
+                    city: selectedCity, 
+                    mySessions: isOnlyMySessions 
+                  });
+                }}
                 className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
               >
                 <option value="">All Genres</option>
@@ -204,7 +253,16 @@ const SessionsPage = () => {
             <div>
               <select
                 value={selectedCity}
-                onChange={(e) => setSelectedCity(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedCity(value);
+                  updateURL({ 
+                    search: searchQuery, 
+                    genre: selectedGenre, 
+                    city: value, 
+                    mySessions: isOnlyMySessions 
+                  });
+                }}
                 className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
               >
                 <option value="">All Cities</option>
@@ -215,8 +273,43 @@ const SessionsPage = () => {
             </div>
           </div>
 
+          {/* My Sessions Toggle - Added below the main filters */}
+          <div className="flex items-center justify-start mt-4 pt-4 border-t border-white/10">
+            <label className="flex items-center cursor-pointer group">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={isOnlyMySessions}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIsOnlyMySessions(checked);
+                    updateURL({ 
+                      search: searchQuery, 
+                      genre: selectedGenre, 
+                      city: selectedCity, 
+                      mySessions: checked 
+                    });
+                  }}
+                  className="sr-only"
+                />
+                <div className={`w-11 h-6 rounded-full transition-colors duration-200 ${
+                  isOnlyMySessions 
+                    ? 'bg-gradient-to-r from-purple-500 to-blue-500' 
+                    : 'bg-gray-600'
+                }`}>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-200 ${
+                    isOnlyMySessions ? 'translate-x-5' : 'translate-x-0.5'
+                  } mt-0.5`}></div>
+                </div>
+              </div>
+              <span className="ml-3 text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
+                Show only my sessions
+              </span>
+            </label>
+          </div>
+
           {/* Active Filters */}
-          {(searchQuery || selectedGenre || selectedCity) && (
+          {(searchQuery || selectedGenre || selectedCity || isOnlyMySessions) && (
             <div className="flex flex-wrap gap-2 mt-4">
               <span className="text-sm text-gray-300">Active filters:</span>
               {searchQuery && (
@@ -234,15 +327,21 @@ const SessionsPage = () => {
                   City: {selectedCity}
                 </span>
               )}
+              {isOnlyMySessions && (
+                <span className="px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full text-sm">
+                  My Sessions Only
+                </span>
+              )}
               <button
                 onClick={clearFilters}
-                className="px-3 py-1 bg-red-500/20 text-red-300 rounded-full text-sm hover:bg-red-500/30"
+                className="px-3 py-1 bg-red-500/20 text-red-300 rounded-full text-sm hover:bg-red-500/30 transition-colors"
               >
                 Clear all
               </button>
             </div>
           )}
         </div>
+
 
         {/* Sessions Grid */}
         <div className="mb-8">
@@ -294,7 +393,7 @@ const SessionsPage = () => {
                 {filteredSessions.map((session) => {
                   const style = getGenreStyle(session.genre?.name);
                   const isLive = new Date(session.dateTime) <= new Date();
-                  const currentParticipants = Math.floor(Math.random() * session.maxParticipants);
+                  const currentParticipants = session.currentParticipants;
                   const progressPercentage = (currentParticipants / session.maxParticipants) * 100;
 
                   return (
@@ -322,24 +421,30 @@ const SessionsPage = () => {
                       <p className="text-sm text-gray-300 mb-4 line-clamp-2">{session.description}</p>
 
                       {/* Host */}
-                      <div className="mb-4">
-                        <h4 className="text-sm font-semibold text-purple-400 mb-2">👤 Host</h4>
-                        <div 
-                          className="flex items-center gap-3 cursor-pointer hover:bg-white/10 rounded-lg p-2 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openHostModal(session.host);
-                          }}
-                        >
-                          <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-600 rounded-full flex items-center justify-center text-sm font-bold">
-                            {session.host?.name?.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{session.host?.name}</p>
-                            <p className="text-xs text-gray-400">Session Host</p>
+                      {/* {!isOnlyMySessions && */}
+                        <div className="mb-4">
+                          <h4 className="text-sm font-semibold text-purple-400 mb-2">👤 Host</h4>
+                          <div 
+                            className="flex items-center gap-3 cursor-pointer hover:bg-white/10 rounded-lg p-2 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openHostModal(session.host);
+                            }}
+                          >
+                            <ProfilePictureImage
+                              publicId={session.host?.profilePictureId}
+                              name={session.host?.name}
+                              size="sm"
+                              alt="Profile Picture"
+                            />
+                            <div>
+                              <p className="text-sm font-medium">{session.host?.name}</p>
+                              <p className="text-xs text-gray-400">Session Host</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      {/* } */}
+
 
                       {/* Details */}
                       <div className="space-y-2 mb-4">
@@ -362,6 +467,10 @@ const SessionsPage = () => {
                           <span className="text-white">
                             {new Date(session.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                           </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-400">Duration:</span>
+                          <span className="text-white">{formatDuration(session.durationInMinutes)}</span>
                         </div>
                       </div>
 
@@ -403,77 +512,12 @@ const SessionsPage = () => {
 
         {/* Host Modal */}
 
-        {isHostModalOpen && selectedHost && (
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-            onClick={handleBackdropClick}
-          >
-            <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 relative">
-              <button
-                onClick={closeHostModal}
-                className="absolute top-4 right-4 text-gray-400 hover:text-white text-xl font-bold"
-              >
-                ×
-              </button>
-              
-              <div className="text-center">
-                <div className="w-20 h-20 bg-gradient-to-r from-orange-500 to-red-600 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
-                  {selectedHost.profilePictureUrl ? (
-                    <img 
-                      src={selectedHost.profilePictureUrl} 
-                      alt={selectedHost.name}
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  ) : (
-                    selectedHost.name?.charAt(0).toUpperCase()
-                  )}
-                </div>
-                
-                <h2 className="text-xl font-bold text-white mb-2">{selectedHost.name}</h2>
-                <p className="text-purple-400 mb-4 capitalize">{selectedHost.role?.toLowerCase()}</p>
-                
-                {selectedHost.bio && (
-                  <div className="mb-4 text-left">
-                    <h3 className="text-sm font-semibold text-gray-300 mb-2">Bio</h3>
-                    <p className="text-gray-400 text-sm bg-gray-700 p-3 rounded-lg">{selectedHost.bio}</p>
-                  </div>
-                )}
-                
-                {selectedHost.phoneNumber && (
-                  <div className="mb-4 text-left">
-                    <h3 className="text-sm font-semibold text-gray-300 mb-2">Contact</h3>
-                    <p className="text-gray-400 text-sm bg-gray-700 p-3 rounded-lg">{selectedHost.phoneNumber}</p>
-                  </div>
-                )}
-
-                {/* Social Media Icons Horizontal */}
-                {(selectedHost.instagramUrl || selectedHost.spotifyUrl || selectedHost.youtubeUrl 
-                || selectedHost.twitterUrl || selectedHost.tiktokUrl) && 
-              
-                  <div className="mb-4 text-left">
-                    <h3 className="text-sm font-semibold text-gray-300 mb-2">Social Media</h3>
-                    <div className="flex items-center gap-5 justify-center">
-                      <SocialMediaLinks
-                        instagramUrl={selectedHost.instagramUrl}
-                        spotifyUrl={selectedHost.spotifyUrl}
-                        youtubeUrl={selectedHost.youtubeUrl}
-                        twitterUrl={selectedHost.twitterUrl}
-                        tiktokUrl={selectedHost.tiktokUrl}
-                      />
-                    </div>
-                  </div>
-                }
-
-                {selectedHost.yearsOfExperience != null && (
-                  <div className="mb-4 text-left">
-                    <h3 className="text-sm font-semibold text-gray-300 mb-2">Years of Experience</h3>
-                    <p className="text-gray-400 text-sm bg-gray-700 p-3 rounded-lg">{selectedHost.yearsOfExperience}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Replace your old modal with this */}
+        <HostModal
+          isOpen={isHostModalOpen}
+          onClose={closeHostModal}
+          host={selectedHost}
+        />
 
       </div>
     </div>

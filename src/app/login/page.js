@@ -114,7 +114,7 @@ export default function Login() {
 
   const handleForgotPassword = async () => {
     if (!formData.email) {
-      setError('Please enter your email address first');
+      setError('Please enter your email address');
       return;
     }
 
