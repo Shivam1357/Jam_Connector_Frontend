@@ -30,7 +30,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 400) {
+    if (error.response?.status === 401) {
       // Token expired, logout user
       // localStorage.removeItem('token')
       // localStorage.removeItem('user')

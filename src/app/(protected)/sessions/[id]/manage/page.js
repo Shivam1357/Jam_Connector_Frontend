@@ -81,7 +81,7 @@ export default function SessionManagePage({ params }) {
     try {
       setLoading(true)
       const participantsData = await sessionService.getParticipants(id)
-      console.log(participantsData);
+      // console.log(participantsData);
       setParticipants(participantsData)
     } catch (error) {
       console.error('Failed to fetch participants:', error)

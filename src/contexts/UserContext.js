@@ -59,6 +59,8 @@ export function UserProvider({ children }) {
     }
   }
 
+  
+
   const clearError = () => setError(null)
 
   const value = {

@@ -18,7 +18,7 @@ export const authService = {
  googleLogin: async (data) => {
     try {
       const response = await apiClient.post('/auth/google', data);
-      console.log('Google login response:', response);
+      // console.log('Google login response:', response);
       return response; // This will be { data: { token, user }, status: 200, ... }
     } catch (error) {
       console.error('Service error:', error);

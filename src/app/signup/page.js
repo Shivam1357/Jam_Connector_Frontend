@@ -97,9 +97,9 @@ export default function Signup() {
       
       if (result.success) {
         // Registration successful, redirect will happen automatically via useEffect
-        console.log('Registration successful');
+        // console.log('Registration successful');
       } else {
-        console.log(result.error);
+        console.error(result.error);
         setError(result.error);
       }
       

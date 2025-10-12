@@ -1,128 +1,191 @@
-// pages/sessions.js or components/SessionsPage.js
 "use client"
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { sessionService } from '@/services/sessionService'; // Adjust import path
-import { FaInstagram, FaSpotify, FaYoutube, FaTwitter, FaTiktok } from 'react-icons/fa';
-import SocialMediaLinks from '@/components/SocialMediaLinks';
+import { sessionService } from '@/services/sessionService';
 import { formatDuration } from '@/hooks/formatDuration';
-import JamSessionImage from '@/components/JamSessionImage';
 import ProfilePictureImage from '@/components/ProfilePictureImage';
 import HostModal from '@/components/HostModal';
+import { genresList } from '@/data/genres';
 
+// Custom debounce hook
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
 
 const SessionsPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // State management
   const [sessions, setSessions] = useState([]);
-  const [filteredSessions, setFilteredSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
-  const [isHostModalOpen, setIsHostModalOpen] = useState(false);
-  const [selectedHost, setSelectedHost] = useState(null);
   const [isOnlyMySessions, setIsOnlyMySessions] = useState(false);
 
-  // Get unique genres and cities from sessions
-  const [genres, setGenres] = useState([]);
-  const [cities, setCities] = useState([]);
+  // Modal states
+  const [isHostModalOpen, setIsHostModalOpen] = useState(false);
+  const [selectedHost, setSelectedHost] = useState(null);
 
+  // Debounced search query
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+
+  const pageSize = 6;
+  
+  const genres = useMemo(() => {
+    const uniqueGenres = [...new Set(genresList.map(genre => genre?.name).filter(Boolean))];
+    // console.log(uniqueGenres);
+    return uniqueGenres.sort();
+  }, [sessions]);
+
+
+  const cities = useMemo(() => {
+    const uniqueCities = [...new Set(sessions.map(session => session.address?.city).filter(Boolean))];
+    return uniqueCities.sort();
+  }, [sessions]);
+
+  // Initialize filters from URL (only once)
   useEffect(() => {
-    fetchAllSessions();
-  }, [isOnlyMySessions]);
+    const urlTitle = searchParams.get('title') || '';
+    const urlCity = searchParams.get('city') || '';
+    const urlGenre = searchParams.get('genre') || '';
+    const urlMySessions = searchParams.get('mySessions') === 'true';
+    const urlPage = parseInt(searchParams.get('page')) || 0;
 
-  useEffect(() => {
-    filterSessions();
-  }, [sessions, searchQuery, selectedGenre, selectedCity]);
+    setSearchQuery(urlTitle);
+    setSelectedCity(urlCity);
+    setSelectedGenre(urlGenre);
+    setIsOnlyMySessions(urlMySessions);
+    setCurrentPage(urlPage);
+  }, []);
 
-  const fetchAllSessions = async () => {
+  // Fetch sessions with search and pagination
+  const fetchSessions = useCallback(async (resetPage = false) => {
     try {
       setLoading(true);
       setError(null);
-      const data =(isOnlyMySessions ?  await sessionService.getMySessions() : await sessionService.getAllSessions());
-      console.log(data);
-      const upcomingSessions = data.filter(session => session.status === 'UPCOMING');
-      setSessions(upcomingSessions);
-      
-      // Extract unique genres and cities
-      const uniqueGenres = [...new Set(upcomingSessions.map(session => session.genre?.name).filter(Boolean))];
-      const uniqueCities = [...new Set(upcomingSessions.map(session => session.address?.city).filter(Boolean))];
-      
-      setGenres(uniqueGenres);
-      setCities(uniqueCities);
+
+      const page = resetPage ? 0 : currentPage;
+      let response;
+
+      if (isOnlyMySessions) {
+        // Get user's own sessions
+        response = await sessionService.getMySessions(page, pageSize);
+      } else {
+        // Search with filters
+        const searchParams = {};
+        if (debouncedSearchQuery.trim()) searchParams.title = debouncedSearchQuery.trim();
+        if (selectedCity) searchParams.city = selectedCity;
+        if (selectedGenre) searchParams.genres = [selectedGenre];
+        searchParams.status = 'UPCOMING'; // Only show upcoming sessions
+
+        response = await sessionService.searchSessions(
+          searchParams,
+          page,
+          pageSize,
+          'dateTime,asc'
+        );
+      }
+
+      // console.log(response.content);
+
+      setSessions(response.content || []);
+      setTotalPages(response.totalPages || 0);
+      setTotalElements(response.totalElements || 0);
+
+      if (resetPage && currentPage !== 0) {
+        setCurrentPage(0);
+      }
+
+      // Update URL
+      updateURL({
+        title: debouncedSearchQuery,
+        city: selectedCity,
+        genre: selectedGenre,
+        mySessions: isOnlyMySessions,
+        page: resetPage ? 0 : page
+      });
+
     } catch (error) {
       console.error('Failed to fetch sessions:', error);
-      setError('Failed to load sessions');
+      setError(error.message || 'Failed to load sessions');
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearchQuery, selectedCity, selectedGenre, isOnlyMySessions, currentPage]);
 
-// Add this useEffect to initialize from URL
-  useEffect(() => {
-    const search = searchParams.get('search') || '';
-    const genre = searchParams.get('genre') || '';
-    const city = searchParams.get('city') || '';
-    const mySessions = searchParams.get('mySessions') === 'true';
+  // Update URL with current filters
+  // In updateURL function - change 'search' to 'title'
+  const updateURL = useCallback((params) => {
+    const url = new URLSearchParams();
     
-    setSearchQuery(search);
-    setSelectedGenre(genre);
-    setSelectedCity(city);
-    setIsOnlyMySessions(mySessions);
-  }, []); // Run only once on mount
-
-  // Add this function after your state declarations
-const updateURL = (params) => {
-  const url = new URLSearchParams();
-  
-  if (params.search) url.set('search', params.search);
-  if (params.genre) url.set('genre', params.genre);
-  if (params.city) url.set('city', params.city);
-  if (params.mySessions) url.set('mySessions', 'true');
-  
-  const queryString = url.toString();
-  router.push(`/sessions${queryString ? `?${queryString}` : ''}`, { scroll: false });
-};
+    if (params.title) url.set('title', params.title); 
+    if (params.city) url.set('city', params.city);
+    if (params.genre) url.set('genre', params.genre);
+    if (params.mySessions) url.set('mySessions', 'true');
+    if (params.page !== undefined && params.page !== 0) url.set('page', params.page);
+    
+    const queryString = url.toString();
+    router.push(`/sessions${queryString ? `?${queryString}` : ''}`, { scroll: false });
+  }, [router]);
 
 
-  const filterSessions = () => {
-    let filtered = sessions;
+  // Fetch sessions when filters change
+  useEffect(() => {
+    const isInitialLoad = !sessions.length && 
+      !debouncedSearchQuery && !selectedCity && !selectedGenre;
 
-    // Search by title or host name
-    if (searchQuery) {
-      filtered = filtered.filter(session => 
-        session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        session.host?.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+    if (isInitialLoad) {
+      fetchSessions();
+    } else {
+      fetchSessions(true);
     }
+  }, [debouncedSearchQuery, selectedCity, selectedGenre, isOnlyMySessions]); 
 
-    // Filter by genre
-    if (selectedGenre) {
-      filtered = filtered.filter(session => session.genre?.name === selectedGenre);
+  // Fetch when page changes
+  useEffect(() => {
+    if (sessions.length > 0) {
+      fetchSessions(false);
     }
+  }, [currentPage]);
 
-    // Filter by city
-    if (selectedCity) {
-      filtered = filtered.filter(session => session.address?.city === selectedCity);
-    }
-
-    setFilteredSessions(filtered);
-  };
-
-  const clearFilters = () => {
+  // Clear all filters
+  const clearFilters = useCallback(() => {
     setSearchQuery('');
     setSelectedGenre('');
     setSelectedCity('');
     setIsOnlyMySessions(false);
-
+    setCurrentPage(0);
     router.push('/sessions', { scroll: false });
-  };
+  }, [router]);
 
-  const getGenreStyle = (genreName) => {
+  // Handle pagination
+  const handlePageChange = useCallback((newPage) => {
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  // Genre styling function
+  const getGenreStyle = useCallback((genreName) => {
     switch (genreName?.toLowerCase()) {
       case 'rock':
         return {
@@ -157,51 +220,46 @@ const updateURL = (params) => {
           emoji: '🎵'
         };
     }
-  };
+  }, []);
 
-  const openHostModal = (host) => {
+  // Modal functions
+  const openHostModal = useCallback((host) => {
     setSelectedHost(host);
     setIsHostModalOpen(true);
-  };
+  }, []);
 
-  const closeHostModal = () => {
+  const closeHostModal = useCallback(() => {
     setIsHostModalOpen(false);
     setSelectedHost(null);
-  };
+  }, []);
 
+  // Check if any filters are active
+  const hasActiveFilters = useMemo(() => 
+    searchQuery || selectedGenre || selectedCity || isOnlyMySessions,
+    [searchQuery, selectedGenre, selectedCity, isOnlyMySessions]
+  );
 
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
-      closeHostModal();
-    }
-  };
-
-  React.useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        closeHostModal();
-      }
-    };
-
-    if (isHostModalOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isHostModalOpen]);
+  // Loading state for initial load
+  if (loading && sessions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Loading sessions...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
+        {/* Header - REST OF CODE SAME AS BEFORE */}
+         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">{isOnlyMySessions ? "My Sessions" : "All Sessions"}</h1>
           <p className="text-gray-400">{!isOnlyMySessions ? "Find and join music sessions near you" : ""}</p>
         </div>
+
 
         {/* Search and Filters */}
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 mb-8">
@@ -212,17 +270,9 @@ const updateURL = (params) => {
                 type="text"
                 placeholder="Search by session title or host name..."
                 value={searchQuery}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSearchQuery(value);
-                  updateURL({ 
-                    search: value, 
-                    genre: selectedGenre, 
-                    city: selectedCity, 
-                    mySessions: isOnlyMySessions 
-                  });
-                }}
-                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                disabled={isOnlyMySessions} // ✅ Add this
+                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed" // ✅ Add disabled styles
               />
             </div>
 
@@ -230,17 +280,9 @@ const updateURL = (params) => {
             <div>
               <select
                 value={selectedGenre}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSelectedGenre(value);
-                  updateURL({ 
-                    search: searchQuery, 
-                    genre: value, 
-                    city: selectedCity, 
-                    mySessions: isOnlyMySessions 
-                  });
-                }}
-                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                onChange={(e) => setSelectedGenre(e.target.value)} 
+                disabled={isOnlyMySessions} // ✅ Add this
+                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed" // ✅ Add disabled styles
               >
                 <option value="">All Genres</option>
                 {genres.map(genre => (
@@ -253,17 +295,9 @@ const updateURL = (params) => {
             <div>
               <select
                 value={selectedCity}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSelectedCity(value);
-                  updateURL({ 
-                    search: searchQuery, 
-                    genre: selectedGenre, 
-                    city: value, 
-                    mySessions: isOnlyMySessions 
-                  });
-                }}
-                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                onChange={(e) => setSelectedCity(e.target.value)} 
+                disabled={isOnlyMySessions} // ✅ Add this
+                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed" // ✅ Add disabled styles
               >
                 <option value="">All Cities</option>
                 {cities.map(city => (
@@ -274,7 +308,7 @@ const updateURL = (params) => {
           </div>
 
           {/* My Sessions Toggle - Added below the main filters */}
-          <div className="flex items-center justify-start mt-4 pt-4 border-t border-white/10">
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/10"> {/* ✅ Changed justify-start to justify-between */}
             <label className="flex items-center cursor-pointer group">
               <div className="relative">
                 <input
@@ -283,12 +317,12 @@ const updateURL = (params) => {
                   onChange={(e) => {
                     const checked = e.target.checked;
                     setIsOnlyMySessions(checked);
-                    updateURL({ 
-                      search: searchQuery, 
-                      genre: selectedGenre, 
-                      city: selectedCity, 
-                      mySessions: checked 
-                    });
+                    
+                    if (checked) {
+                      setSearchQuery('');
+                      setSelectedGenre('');
+                      setSelectedCity('');
+                    }
                   }}
                   className="sr-only"
                 />
@@ -306,23 +340,30 @@ const updateURL = (params) => {
                 Show only my sessions
               </span>
             </label>
+            
+            {/* ✅ Add info message when My Sessions is active */}
+            {isOnlyMySessions && (
+              <span className="text-xs text-gray-400 italic">
+                Other filters are disabled
+              </span>
+            )}
           </div>
 
           {/* Active Filters */}
           {(searchQuery || selectedGenre || selectedCity || isOnlyMySessions) && (
             <div className="flex flex-wrap gap-2 mt-4">
               <span className="text-sm text-gray-300">Active filters:</span>
-              {searchQuery && (
+              {searchQuery && !isOnlyMySessions && ( // ✅ Hide if My Sessions active
                 <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm">
                   Search: &quot;{searchQuery}&quot;
                 </span>
               )}
-              {selectedGenre && (
+              {selectedGenre && !isOnlyMySessions && ( // ✅ Hide if My Sessions active
                 <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">
                   Genre: {selectedGenre}
                 </span>
               )}
-              {selectedCity && (
+              {selectedCity && !isOnlyMySessions && ( // ✅ Hide if My Sessions active
                 <span className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm">
                   City: {selectedCity}
                 </span>
@@ -342,7 +383,6 @@ const updateURL = (params) => {
           )}
         </div>
 
-
         {/* Sessions Grid */}
         <div className="mb-8">
           {loading ? (
@@ -356,13 +396,13 @@ const updateURL = (params) => {
                 <p>{error}</p>
               </div>
               <button 
-                onClick={fetchAllSessions}
+                onClick={() => fetchSessions()}
                 className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg"
               >
                 Try Again
               </button>
             </div>
-          ) : filteredSessions.length === 0 ? (
+          ) : sessions.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">🎵</div>
               <h3 className="text-xl font-semibold text-white mb-2">No sessions found</h3>
@@ -385,16 +425,30 @@ const updateURL = (params) => {
             <>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-white">
-                  {filteredSessions.length} Session{filteredSessions.length !== 1 ? 's' : ''} Found
+                  {totalElements} Session{totalElements !== 1 ? 's' : ''} Found  {/* ✅ Use totalElements instead of sessions.length */}
                 </h2>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredSessions.map((session) => {
+                {sessions.map((session) => {
                   const style = getGenreStyle(session.genre?.name);
                   const isLive = new Date(session.dateTime) <= new Date();
                   const currentParticipants = session.currentParticipants;
                   const progressPercentage = (currentParticipants / session.maxParticipants) * 100;
+
+                  const startTime = new Date(session.dateTime);
+                  const endTime = new Date(startTime.getTime() + session.durationInMinutes * 60000);
+                  const now = new Date();
+
+                  let statusText = '';
+
+                  if (now < startTime) {
+                    statusText = 'Soon';
+                  } else if (now >= startTime && now <= endTime) {
+                    statusText = 'Live';
+                  } else {
+                    statusText = 'Completed';
+                  }
 
                   return (
                     <div 
@@ -403,19 +457,24 @@ const updateURL = (params) => {
                       onClick={() => router.push(`/sessions/${session.id}`)}
                     >
                       {/* Header */}
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-lg flex items-center gap-2">
+                      <div className="flex flex-wrap items-center justify-between mb-4">
+                        <h3 className="font-bold text-lg flex items-center gap-2 break-words">
                           <span>{style.emoji}</span>
-                          <span className="truncate">{session.title}</span>
+                          <span className="break-words whitespace-normal">{session.title}</span>
                         </h3>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          isLive 
-                            ? 'bg-green-500/20 text-green-300' 
-                            : 'bg-blue-500/20 text-blue-300'
-                        }`}>
-                          {isLive ? 'Live' : 'Soon'}
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            statusText === 'Live'
+                              ? 'bg-green-500/20 text-green-300'
+                              : statusText === 'Completed'
+                              ? 'bg-gray-500/20 text-gray-300'
+                              : 'bg-blue-500/20 text-blue-300'
+                          }`}
+                        >
+                          {statusText}
                         </span>
                       </div>
+
 
                       {/* Description */}
                       <p className="text-sm text-gray-300 mb-4 line-clamp-2">{session.description}</p>
@@ -510,15 +569,68 @@ const updateURL = (params) => {
           )}
         </div>
 
-        {/* Host Modal */}
 
-        {/* Replace your old modal with this */}
+        {/* Pagination - COMPLETELY REPLACE THIS SECTION */}
+        {totalPages > 1 && (
+          <div className="flex justify-center mt-8">
+            <div className="flex gap-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 0 || loading}
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600 transition-colors"
+              >
+                Previous
+              </button>
+              
+              {(() => {
+                const pages = [];
+                const maxPagesToShow = 5;
+                let startPage = Math.max(0, currentPage - Math.floor(maxPagesToShow / 2));
+                let endPage = Math.min(totalPages - 1, startPage + maxPagesToShow - 1);
+                
+                // Adjust start if we're near the end
+                if (endPage - startPage < maxPagesToShow - 1) {
+                  startPage = Math.max(0, endPage - maxPagesToShow + 1);
+                }
+                
+                for (let i = startPage; i <= endPage; i++) {
+                  pages.push(
+                    <button
+                      key={i}
+                      onClick={() => handlePageChange(i)}
+                      disabled={loading}
+                      className={`px-4 py-2 rounded-lg transition-colors disabled:cursor-not-allowed ${
+                        i === currentPage
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-gray-700 text-white hover:bg-gray-600'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  );
+                }
+                
+                return pages;
+              })()}
+              
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages - 1 || loading}
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600 transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+
+
+        {/* Host Modal */}
         <HostModal
           isOpen={isHostModalOpen}
           onClose={closeHostModal}
           host={selectedHost}
         />
-
       </div>
     </div>
   );

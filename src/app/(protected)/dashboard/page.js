@@ -17,7 +17,48 @@ export default function Dashboard() {
 
   const [liveSessions, setLiveSessions] = useState([])
   const [liveSessionsLoading, setLiveSessionsLoading] = useState(true)
-  const [liveSessionsError, setLiveSessionsError] = useState(null)
+  const [liveSessionsError, setLiveSessionsError] = useState(null);
+
+  // Add these states at the top with your other state declarations
+  const [stats, setStats] = useState({
+    activeSessions: 0,
+    mySessions: 0,
+    loading: true
+  });
+
+  // Add this function after your other fetch functions
+  const fetchStats = async () => {
+    try {
+      // Fetch active sessions count (all upcoming public sessions)
+      const activeSessionsResponse = await sessionService.searchSessions(
+        { status: 'UPCOMING', isPublic: true },
+        0,
+        1, // We only need count, not actual data
+        'dateTime,asc'
+      );
+
+      // console.log(activeSessionsResponse);
+
+      // Fetch my sessions count
+      const mySessionsResponse = await sessionService.getMySessions(0, 1);
+
+      setStats({
+        activeSessions: activeSessionsResponse.totalElements || 0,
+        mySessions: mySessionsResponse.totalElements || 0,
+        loading: false
+      });
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+      setStats(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  // Add this useEffect with your other useEffects
+  useEffect(() => {
+    if (user) {
+      fetchStats();
+    }
+  }, [user]);
 
 
   // Fetch live sessions
@@ -25,19 +66,20 @@ export default function Dashboard() {
     if (isAuthenticated) {
       fetchLiveSessions();
     }
-    console.log(user);
+    // console.log(user);
   }, [isAuthenticated, showCreateModal]);
 
   const fetchLiveSessions = async () => {
     try {
       setLiveSessionsLoading(true)
       setLiveSessionsError(null)
-      const data = await sessionService.getUpcomingSessions()
-      console.log(data);
+      
+      // Fetch with pagination - get first page with 2 items
+      const response = await sessionService.getUpcomingSessions(0, 2)
+      // console.log(response);
 
-      // Filter for upcoming sessions and take only first 2 for display
-      const upcomingSessions = data.filter(session => session.status === 'UPCOMING');
-      setLiveSessions(upcomingSessions)
+      // Response is now paginated with { content, totalElements, totalPages, etc. }
+      setLiveSessions(response.content || [])
     } catch (error) {
       console.error('Failed to fetch live sessions:', error)
       setLiveSessionsError('Failed to load sessions')
@@ -46,22 +88,19 @@ export default function Dashboard() {
     }
   }
 
-
   
   // Handle create session modal
   const handleCreateSession = async (sessionData) => {
     try {
-      console.log('Creating session:', sessionData)
+      // console.log('Creating session:', sessionData)
       
-      // ✅ CORRECT WAY to log FormData contents
-      console.log('=== FormData Contents ===')
-      for (const [key, value] of sessionData.entries()) {
-        console.log(`${key}:`, value)
-      }
-
-      // TODO: Call your session creation API here
+      // console.log('=== FormData Contents ===')
+      // for (const [key, value] of sessionData.entries()) {
+      //   console.log(`${key}:`, value)
+      // }
+      
       const result = await sessionService.createSession(sessionData)
-      console.log(result);
+      // console.log(result);
       setShowCreateModal(false);
       alert('Session created successfully!')
       // Optionally refresh session list
@@ -101,33 +140,46 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Active Sessions Card */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">Active Sessions</p>
-                <p className="text-3xl font-bold text-orange-400">8</p>
+                <p className="text-gray-400 text-sm mb-1">Active Sessions</p>
+                {stats.loading ? (
+                  <div className="w-16 h-9 bg-gray-700/50 rounded animate-pulse"></div>
+                ) : (
+                  <p className="text-3xl font-bold text-orange-400">{stats.activeSessions}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">Public sessions available</p>
               </div>
-              <div className="w-12 h-12 bg-orange-500/20 rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 bg-orange-500/20 rounded-full flex items-center justify-center text-2xl">
                 🎸
               </div>
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+          {/* My Sessions Card */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">My Sessions</p>
-                <p className="text-3xl font-bold text-purple-400">
-                  {user?.role === 'MUSICIAN' ? '5' : '12'}
+                <p className="text-gray-400 text-sm mb-1">My Sessions</p>
+                {stats.loading ? (
+                  <div className="w-16 h-9 bg-gray-700/50 rounded animate-pulse"></div>
+                ) : (
+                  <p className="text-3xl font-bold text-purple-400">{stats.mySessions}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  {user?.role === 'MUSICIAN' ? 'Sessions hosted' : 'Sessions joined'}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center text-2xl">
                 🎼
               </div>
             </div>
           </div>
         </div>
+
 
         {/* Create Session Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
@@ -156,7 +208,6 @@ export default function Dashboard() {
               Join a Session
             </h3>
             
-            {/* DYNAMIC CONTENT */}
             <div className="space-y-4">
               {liveSessionsLoading ? (
                 <div className="flex items-center justify-center py-8">
@@ -168,20 +219,27 @@ export default function Dashboard() {
                   <p>{liveSessionsError}</p>
                   <button 
                     onClick={fetchLiveSessions}
-                    className="mt-2 text-orange-500 hover:text-orange-400 underline"
+                    className="mt-2 text-orange-500 hover:text-orange-400 underline text-sm"
                   >
                     Try again
                   </button>
                 </div>
               ) : liveSessions.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <p>No active sessions right now</p>
-                  <p className="text-sm mt-1">Create your own session to get started!</p>
+                <div className="text-center py-8">
+                  <div className="text-5xl mb-3">🎵</div>
+                  <p className="text-gray-300 font-medium">No active sessions right now</p>
+                  <p className="text-sm text-gray-400 mt-1">Create your own session to get started!</p>
+                  <button 
+                    onClick={() => router.push('/sessions/create')}
+                    className="mt-4 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105"
+                  >
+                    Create Session
+                  </button>
                 </div>
               ) : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {liveSessions.slice(0,2).map((session) => {
+                    {liveSessions.map((session) => {
                       const getGenreStyle = (genreName) => {
                         switch (genreName?.toLowerCase()) {
                           case 'rock':
@@ -220,53 +278,87 @@ export default function Dashboard() {
                       }
 
                       const style = getGenreStyle(session.genre?.name)
-                      const isLive = new Date(session.dateTime) <= new Date()
-                      const currentParticipants = Math.floor(Math.random() * session.maxParticipants) // Mock current participants
+                      
+                      // Calculate status more accurately
+                      const startTime = new Date(session.dateTime)
+                      const endTime = new Date(startTime.getTime() + session.durationInMinutes * 60000)
+                      const now = new Date()
+                      
+                      let statusText = ''
+                      let statusColor = ''
+                      
+                      if (now < startTime) {
+                        statusText = 'Soon'
+                        statusColor = 'bg-blue-500/20 text-blue-300'
+                      } else if (now >= startTime && now <= endTime) {
+                        statusText = 'Live'
+                        statusColor = 'bg-green-500/20 text-green-300 animate-pulse'
+                      } else {
+                        statusText = 'Ended'
+                        statusColor = 'bg-gray-500/20 text-gray-300'
+                      }
+
+                      const currentParticipants = session.currentParticipants || 0
                       const progressPercentage = (currentParticipants / session.maxParticipants) * 100
 
                       return (
                         <div 
-                          style={{cursor:'pointer'}}
-                          onClick={() => router.push(`/sessions/${session.id}`)}
                           key={session.id} 
-                          className={`bg-gradient-to-br ${style.gradient} border ${style.border} rounded-xl p-4 hover:shadow-lg hover:shadow-${session.genre?.name?.toLowerCase() || 'gray'}-500/20 transition-all duration-300`}
+                          onClick={() => router.push(`/sessions/${session.id}`)}
+                          className={`bg-gradient-to-br ${style.gradient} border ${style.border} rounded-xl p-4 hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-[1.02]`}
                         >
+                          {/* Header */}
                           <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-semibold flex items-center gap-2">
-                              <span>{style.emoji}</span>
+                            <h4 className="font-semibold text-base flex items-center gap-2 flex-1 min-w-0">
+                              <span className="text-xl">{style.emoji}</span>
                               <span className="truncate">{session.title}</span>
                             </h4>
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              isLive 
-                                ? 'bg-green-500/20 text-green-300' 
-                                : 'bg-blue-500/20 text-blue-300'
-                            }`}>
-                              {isLive ? 'Live' : 'Soon'}
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ml-2 ${statusColor}`}>
+                              {statusText}
                             </span>
                           </div>
                           
+                          {/* Location & Genre */}
+                          <div className="flex items-center gap-3 mb-3 text-xs text-gray-400">
+                            {session.address?.city && (
+                              <span className="flex items-center gap-1">
+                                📍 {session.address.city}
+                              </span>
+                            )}
+                            <span className="flex items-center gap-1">
+                              🎵 {session.genre?.name}
+                            </span>
+                          </div>
+
+                          {/* Participants & Time */}
                           <div className="flex items-center justify-between mb-3">
                             <p className="text-sm text-gray-300">
-                              {currentParticipants}/{session.maxParticipants} musicians
+                              👥 {currentParticipants}/{session.maxParticipants} musicians
                             </p>
                             <p className="text-xs text-gray-400">
-                              {isLive ? 'Live now' : new Date(session.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              {statusText === 'Live' 
+                                ? '🔴 Live now' 
+                                : `🕐 ${new Date(session.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
+                              }
                             </p>
                           </div>
                           
+                          {/* Progress Bar */}
                           <div className="w-full bg-gray-700/50 rounded-full h-2 mb-3">
                             <div 
                               className={`bg-gradient-to-r ${style.progress} h-2 rounded-full transition-all duration-300`} 
-                              style={{width: `${progressPercentage}%`}}
+                              style={{width: `${Math.min(progressPercentage, 100)}%`}}
                             ></div>
                           </div>
-                          
-                          {/* <button 
-                            onClick={() => alert(`Joining ${session.title}...`)}
-                            className={`w-full bg-gradient-to-r ${style.button} text-white py-2 px-4 rounded-lg text-sm font-medium transition-all duration-300 transform hover:scale-[1.02]`}
-                          >
-                            Join Now
-                          </button> */}
+
+                          {/* Date */}
+                          <p className="text-xs text-gray-400 text-center">
+                            📅 {new Date(session.dateTime).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </p>
                         </div>
                       )
                     })}
@@ -274,13 +366,19 @@ export default function Dashboard() {
                 </>
               )}
               
+              {/* Browse All Sessions Button */}
               <button 
                 onClick={() => router.push('/sessions')}
-                className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.01] flex items-center justify-center gap-2"
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
               >
-                🔍 Browse All Sessions
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Browse All Sessions
               </button>
             </div>
+
+
           </div>
         </div>
 

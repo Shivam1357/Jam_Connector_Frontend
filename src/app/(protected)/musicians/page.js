@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotification } from '@/contexts/NotificationContext';
@@ -7,6 +7,7 @@ import { musiciansService } from '@/services/musiciansService';
 import { genresList } from '@/data/genres';
 import { instrumentsList } from '@/data/instruments';
 import SocialMediaLinks from '@/components/SocialMediaLinks';
+import ProfilePictureImage from '@/components/ProfilePictureImage';
 
 // Custom debounce hook
 const useDebounce = (value, delay) => {
@@ -51,16 +52,28 @@ const MusiciansPage = () => {
   // Modal states
   const [isMusicianModalOpen, setIsMusicianModalOpen] = useState(false);
   const [selectedMusician, setSelectedMusician] = useState(null);
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-  
-  // Contact form states
-  const [contactMessage, setContactMessage] = useState('');
-  const [contactSubject, setContactSubject] = useState('');
 
   // Debounced values for API calls
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const debouncedMinExperience = useDebounce(minExperience, 500);
   const debouncedMaxExperience = useDebounce(maxExperience, 500);
+
+  
+  const updateURL = useCallback((filters) => {
+    const params = new URLSearchParams();
+    
+    if (filters.name) params.set('name', filters.name);
+    if (filters.city) params.set('city', filters.city);
+    if (filters.genre) params.set('genre', filters.genre);
+    if (filters.instrument) params.set('instrument', filters.instrument);
+    if (filters.minExperience) params.set('minExperience', filters.minExperience);
+    if (filters.maxExperience) params.set('maxExperience', filters.maxExperience);
+    if (filters.page !== undefined && filters.page !== 0) params.set('page', filters.page);
+    
+    const queryString = params.toString();
+    router.push(`/musicians${queryString ? `?${queryString}` : ''}`, { scroll: false });
+  }, [router]);
+
 
   // Get unique cities from musicians (memoized)
   const cities = useMemo(() => {
@@ -68,9 +81,9 @@ const MusiciansPage = () => {
     return uniqueCities.sort();
   }, [musicians]);
 
-  const pageSize = 12;
+  const pageSize = 6;
 
-  // Initialize filters from URL params (only once)
+    // Initialize filters from URL params (only once) and fetch
   useEffect(() => {
     const urlName = searchParams.get('name') || '';
     const urlCity = searchParams.get('city') || '';
@@ -87,7 +100,56 @@ const MusiciansPage = () => {
     setMinExperience(urlMinExp);
     setMaxExperience(urlMaxExp);
     setCurrentPage(urlPage);
-  }, []); // Empty dependency array - only run once
+
+    // ✅ Fetch immediately with URL params
+    fetchMusiciansWithParams({
+      name: urlName,
+      city: urlCity,
+      genre: urlGenre,
+      instrument: urlInstrument,
+      minExperience: urlMinExp,
+      maxExperience: urlMaxExp,
+      page: urlPage
+    });
+  }, []); // Empty dependency - run only once
+
+  // Add this function before fetchMusicians
+  const fetchMusiciansWithParams = useCallback(async (params) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { name = '', city = '', genre = '', instrument = '', minExperience = '', maxExperience = '', page = 0 } = params;
+      
+      const searchParams = {};
+      if (name.trim()) searchParams.name = name.trim();
+      if (city) searchParams.city = city;
+      if (genre) searchParams.genres = [genre];
+      if (instrument) searchParams.instruments = [instrument];
+      if (minExperience) searchParams.minExperience = parseInt(minExperience);
+      if (maxExperience) searchParams.maxExperience = parseInt(maxExperience);
+
+      const response = await musiciansService.searchMusicians(
+        searchParams,
+        page,
+        pageSize,
+        'name,asc'
+      );
+
+      // console.log('Initial fetch with URL params:', response.content);
+
+      setMusicians(response.content || []);
+      setTotalPages(response.totalPages || 0);
+      setTotalElements(response.totalElements || 0);
+
+    } catch (error) {
+      console.error('Failed to fetch musicians:', error);
+      setError(error.message || 'Failed to load musicians');
+      showError(error.message || 'Failed to load musicians. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [showError]);
 
   // Fetch musicians with search and pagination (memoized)
   const fetchMusicians = useCallback(async (resetPage = false) => {
@@ -112,6 +174,8 @@ const MusiciansPage = () => {
         'name,asc'
       );
 
+      // console.log(response.content);
+
       setMusicians(response.content || []);
       setTotalPages(response.totalPages || 0);
       setTotalElements(response.totalElements || 0);
@@ -119,6 +183,8 @@ const MusiciansPage = () => {
       if (resetPage && currentPage !== 0) {
         setCurrentPage(0);
       }
+
+      // ❌ Remove updateURL from here completely
 
     } catch (error) {
       console.error('Failed to fetch musicians:', error);
@@ -138,8 +204,43 @@ const MusiciansPage = () => {
     showError
   ]);
 
+
+
+  // Update URL when filters or page change
+  useEffect(() => {
+    updateURL({
+      name: debouncedSearchQuery,
+      city: selectedCity,
+      genre: selectedGenre,
+      instrument: selectedInstrument,
+      minExperience: debouncedMinExperience,
+      maxExperience: debouncedMaxExperience,
+      page: currentPage
+    });
+  }, [
+    debouncedSearchQuery,
+    selectedCity,
+    selectedGenre,
+    selectedInstrument,
+    debouncedMinExperience,
+    debouncedMaxExperience,
+    currentPage,
+    updateURL
+  ]);
+
+
+
+  // Add a ref to track first render
+  const isFirstRender = useRef(true);
+
   // Fetch musicians when debounced search terms or filters change
   useEffect(() => {
+    // ✅ Skip first render (already fetched in initialization)
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
     const isInitialLoad = !musicians.length && 
       !debouncedSearchQuery && !selectedCity && !selectedGenre && 
       !selectedInstrument && !debouncedMinExperience && !debouncedMaxExperience;
@@ -157,6 +258,8 @@ const MusiciansPage = () => {
     debouncedMinExperience, 
     debouncedMaxExperience
   ]);
+
+
 
   // Fetch musicians when page changes (without resetting page)
   useEffect(() => {
@@ -179,9 +282,14 @@ const MusiciansPage = () => {
 
   // Handle pagination
   const handlePageChange = useCallback((newPage) => {
-    setCurrentPage(newPage);
+      setCurrentPage(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+
+
 
   // Helper functions (memoized)
   const getExperienceColor = useCallback((years) => {
@@ -201,51 +309,6 @@ const MusiciansPage = () => {
     setSelectedMusician(null);
   }, []);
 
-  const openContactModal = useCallback(() => {
-    if (!isAuthenticated) {
-      showError('Please login to contact musicians');
-      return;
-    }
-    setIsContactModalOpen(true);
-    setContactMessage('');
-    setContactSubject('');
-  }, [isAuthenticated, showError]);
-
-  const closeContactModal = useCallback(() => {
-    setIsContactModalOpen(false);
-    setContactMessage('');
-    setContactSubject('');
-  }, []);
-
-  // Handle contact submission
-  const handleContactSubmit = useCallback(async () => {
-    if (!contactMessage.trim()) {
-      showError('Please enter a message');
-      return;
-    }
-
-    try {
-      await musiciansService.contactMusician(selectedMusician.id, contactMessage, contactSubject);
-      showSuccess(`Message sent to ${selectedMusician.name} successfully!`);
-      closeContactModal();
-      closeMusicianModal();
-    } catch (error) {
-      showError(error.message || 'Failed to send message');
-    }
-  }, [contactMessage, contactSubject, selectedMusician, showError, showSuccess, closeContactModal, closeMusicianModal]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        if (isContactModalOpen) closeContactModal();
-        else if (isMusicianModalOpen) closeMusicianModal();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isContactModalOpen, isMusicianModalOpen, closeContactModal, closeMusicianModal]);
 
   // Check if any filters are active
   const hasActiveFilters = useMemo(() => 
@@ -270,12 +333,6 @@ const MusiciansPage = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <button
-            onClick={() => router.back()}
-            className="mb-4 text-gray-400 hover:text-white flex items-center gap-2 transition-colors"
-          >
-            ← Back
-          </button>
           <h1 className="text-4xl font-bold text-white mb-2">Discover Musicians</h1>
           <p className="text-gray-400">Find talented musicians to collaborate with</p>
         </div>
@@ -501,17 +558,15 @@ const MusiciansPage = () => {
                       onClick={() => openMusicianModal(musician)}
                     >
                       {/* Profile Picture */}
-                      <div className="w-20 h-20 bg-gradient-to-r from-orange-500 to-red-600 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
-                        {musician.profilePictureUrl ? (
-                          <img 
-                            src={musician.profilePictureUrl} 
-                            alt={musician.name}
-                            className="w-full h-full rounded-full object-cover"
-                          />
-                        ) : (
-                          musician.name?.charAt(0).toUpperCase()
-                        )}
-                      </div>
+                      <div className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+                        <ProfilePictureImage
+                          publicId={musician.profilePictureId}
+                          name={musician.name}
+                          size="md"
+                          alt="Profile Picture"
+                      />
+                      </div> 
+                      
 
                       {/* Musician Info */}
                       <div className="text-center">
@@ -608,23 +663,36 @@ const MusiciansPage = () => {
                         Previous
                       </button>
                       
-                      {[...Array(Math.min(5, totalPages))].map((_, index) => {
-                        const pageNumber = Math.max(0, Math.min(currentPage - 2 + index, totalPages - 5 + index));
-                        return (
-                          <button
-                            key={pageNumber}
-                            onClick={() => handlePageChange(pageNumber)}
-                            disabled={loading}
-                            className={`px-4 py-2 rounded-lg transition-colors disabled:cursor-not-allowed ${
-                              pageNumber === currentPage
-                                ? 'bg-purple-600 text-white'
-                                : 'bg-gray-700 text-white hover:bg-gray-600'
-                            }`}
-                          >
-                            {pageNumber + 1}
-                          </button>
-                        );
-                      })}
+                      {(() => {
+                        const pages = [];
+                        const maxPagesToShow = 5;
+                        let startPage = Math.max(0, currentPage - Math.floor(maxPagesToShow / 2));
+                        let endPage = Math.min(totalPages - 1, startPage + maxPagesToShow - 1);
+                        
+                        // Adjust start if we're near the end
+                        if (endPage - startPage < maxPagesToShow - 1) {
+                          startPage = Math.max(0, endPage - maxPagesToShow + 1);
+                        }
+                        
+                        for (let i = startPage; i <= endPage; i++) {
+                          pages.push(
+                            <button
+                              key={i}
+                              onClick={() => handlePageChange(i)}
+                              disabled={loading}
+                              className={`px-4 py-2 rounded-lg transition-colors disabled:cursor-not-allowed ${
+                                i === currentPage
+                                  ? 'bg-purple-600 text-white'
+                                  : 'bg-gray-700 text-white hover:bg-gray-600'
+                              }`}
+                            >
+                              {i + 1}
+                            </button>
+                          );
+                        }
+                        
+                        return pages;
+                      })()}
                       
                       <button
                         onClick={() => handlePageChange(currentPage + 1)}
@@ -636,6 +704,7 @@ const MusiciansPage = () => {
                     </div>
                   </div>
                 )}
+
               </div>
             </>
           )}
@@ -654,16 +723,13 @@ const MusiciansPage = () => {
               
               <div className="text-center">
                 {/* Profile Picture */}
-                <div className="w-24 h-24 bg-gradient-to-r from-orange-500 to-red-600 rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-4">
-                  {selectedMusician.profilePictureUrl ? (
-                    <img 
-                      src={selectedMusician.profilePictureUrl} 
-                      alt={selectedMusician.name}
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  ) : (
-                    selectedMusician.name?.charAt(0).toUpperCase()
-                  )}
+                <div className="w-32 h-32 rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-4">
+                  <ProfilePictureImage
+                      publicId={selectedMusician.profilePictureId}
+                      name={selectedMusician.name}
+                      size="lg"
+                      alt="Profile Picture"
+                  />
                 </div>
                 
                 <h2 className="text-2xl font-bold text-white mb-2">{selectedMusician.name}</h2>
@@ -754,70 +820,12 @@ const MusiciansPage = () => {
                 {/* Action Buttons */}
                 <div className="flex gap-2 mt-6">
                   <button 
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
-                    onClick={openContactModal}
-                  >
-                    Contact Musician
-                  </button>
-                  <button 
                     className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
                     onClick={closeMusicianModal}
                   >
                     Close
                   </button>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Contact Modal */}
-        {isContactModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
-            <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold text-white mb-4">Contact {selectedMusician?.name}</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Subject (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={contactSubject}
-                    onChange={(e) => setContactSubject(e.target.value)}
-                    placeholder="What's this about?"
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Message *
-                  </label>
-                  <textarea
-                    value={contactMessage}
-                    onChange={(e) => setContactMessage(e.target.value)}
-                    placeholder="Write your message..."
-                    rows="4"
-                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 mt-6">
-                <button
-                  onClick={handleContactSubmit}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  Send Message
-                </button>
-                <button
-                  onClick={closeContactModal}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
               </div>
             </div>
           </div>

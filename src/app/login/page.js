@@ -73,7 +73,7 @@ export default function Login() {
       
       if (result.success) {
         // Redirect will happen automatically via useEffect
-        console.log('Login successful');
+        // console.log('Login successful');
       } else {
         setError(result.error);
       }
@@ -95,7 +95,7 @@ export default function Login() {
       const result = await googleLoginBackend(credentialResponse.credential);
       
       if (result.success) {
-        console.log('Google login successful');
+        // console.log('Google login successful');
       } else {
         setError(result.error);
       }
@@ -273,11 +273,6 @@ export default function Login() {
           {/* Quick Stats */}
           <div className="text-center mt-6">
             <div className="flex justify-center items-center gap-6 text-sm text-gray-500">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span>50K+ Active Musicians</span>
-              </div>
-              <div className="w-px h-4 bg-gray-600"></div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
                 <span>24/7 Jam Sessions</span>

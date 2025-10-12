@@ -67,7 +67,7 @@ export function AuthProvider({ children }) {
       setLoading(true);
       
       // Call the service with just the data - authService handles the HTTP details
-      console.log(idToken);
+      // console.log(idToken);
       const response = await authService.googleLogin({ idToken });
       
       // authService.googleLogin returns the axios response, data is in response.data

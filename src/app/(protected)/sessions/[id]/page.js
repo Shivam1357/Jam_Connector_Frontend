@@ -74,27 +74,6 @@ export default function SessionPage({ params }) {
   }, [isHostModalOpen]);
 
 
-  // useEffect(() => {
-  //   if (!id) return
-    
-  //   const fetchUserJoinStatus = async () => {
-  //     try {
-  //       setLoading(true)
-  //       setError(null)
-  //       const joinStatus = await sessionService.getMyJoinRequest(id);
-  //       console.log(joinStatus);
-  //       setUserJoinStatus(joinStatus);
-  //     } catch (err) {
-  //       console.error('Failed to fetch User Join Status:', err)
-  //       // setError('Failed to load User Join Status. Please try again.')
-  //     } finally {
-  //       setLoading(false)
-  //     }
-  //   }
-
-  //   fetchUserJoinStatus();
-  // }, [id]);
-
   useEffect(() => {
   if (!id) return
   
@@ -105,11 +84,12 @@ export default function SessionPage({ params }) {
       
       // Check for join request status
       const joinStatus = await sessionService.getMyJoinRequest(id);
-      console.log(joinStatus);
+      // console.log(joinStatus);
       setUserJoinStatus(joinStatus);
       
       // Also check for received invitations for this session
       const invitations = await sessionService.getMyReceivedInvitations();
+      console.log(invitations);
       const sessionInvitation = invitations.find(inv => 
         inv.sessionId == id && inv.status === 'PENDING'
       );
@@ -166,7 +146,7 @@ export default function SessionPage({ params }) {
         setLoading(true)
         setError(null)
         const sessionData = await sessionService.getById(id)
-        console.log(sessionData);
+        // console.log(sessionData);
         setSession(sessionData)
       } catch (err) {
         console.error('Failed to fetch session:', err)
@@ -190,11 +170,6 @@ export default function SessionPage({ params }) {
       // console.log(isMySession);
   }, [session]);
 
-  // const handleJoinSession = () => {
-  //   // TODO: Implement join session functionality
-
-  //   alert(`Joining session: ${session.title}`)
-  // }
  
   const handleJoinSession = async () => {
     try {
@@ -292,9 +267,22 @@ export default function SessionPage({ params }) {
     )
   }
 
-  const isUpcoming = session.status === 'UPCOMING'
-  const sessionDate = new Date(session.dateTime)
-  const isLive = sessionDate <= new Date() && isUpcoming
+  const isUpcoming = session.status === 'UPCOMING';
+  const sessionDate = new Date(session.dateTime);
+
+  const startTime = new Date(session.dateTime);
+  const endTime = new Date(startTime.getTime() + session.durationInMinutes * 60000);
+  const now = new Date();
+
+  let statusText = '';
+
+  if (now < startTime) {
+    statusText = 'Soon';
+  } else if (now >= startTime && now <= endTime) {
+    statusText = 'Live';
+  } else {
+    statusText = 'Completed';
+  }
 
   // Add this before the return statement
   const InvitationModal = () => {
@@ -375,14 +363,16 @@ export default function SessionPage({ params }) {
                 <span className="flex items-center gap-1">
                   🎵 {session.genre?.name}
                 </span>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  isLive 
-                    ? 'bg-green-500/20 text-green-300' 
-                    : session.status === 'UPCOMING'
-                    ? 'bg-blue-500/20 text-blue-300'
-                    : 'bg-gray-500/20 text-gray-300'
-                }`}>
-                  {isLive ? 'Live Now' : session.status}
+                <span
+                  className={`px-2 py-1 text-xs font-medium rounded-full ${
+                    statusText === 'Live'
+                      ? 'bg-green-500/20 text-green-300'
+                      : statusText === 'Completed'
+                      ? 'bg-gray-500/20 text-gray-300'
+                      : 'bg-blue-500/20 text-blue-300'
+                  }`}
+                >
+                  {statusText}
                 </span>
               </div>
             </div>
@@ -538,17 +528,6 @@ export default function SessionPage({ params }) {
               </button>
             </div>
           :
-            // <div className="flex gap-4 pt-6 border-t border-white/10">
-            //   <button
-            //     disabled={userJoinStatus}
-            //     onClick={handleJoinSession}
-            //     className={`flex-1 py-3 px-6 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 ${
-            //         'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
-            //     }`}              
-            //   >
-            //     {!userJoinStatus ? "Join Session" : userJoinStatus?.participant ? "Participated" : userJoinStatus?.status}
-            //   </button>
-            // </div>
             <div className="pt-6 border-t border-white/10">
               {/* Status indicator */}
               {userJoinStatus && (

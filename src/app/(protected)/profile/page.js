@@ -65,7 +65,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (profile) {
       // clearAllNotification();
-      console.log(profile);
+      // console.log(profile);
       setProfileData({
         name: profile.name || '',
         email: profile.email || '',
@@ -93,11 +93,6 @@ export default function ProfilePage() {
         yearsOfExperience: profile.yearsOfExperience || ''
       });
     } else if (user) {
-        // if (!profile && !userLoading && !loading){
-        //   showError("Error loading profile. Please try refreshing the page.");
-        // }
-      // console.log("noooo");
-
       // Fallback to auth user data if profile not loaded yet
       setProfileData(prev => ({
         ...prev,
@@ -168,7 +163,7 @@ export default function ProfilePage() {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      console.log('File selected:', file);
+      // console.log('File selected:', file);
       setProfileData(prev => ({
         ...prev,
         profilePictureFile: file, 
@@ -189,9 +184,9 @@ export default function ProfilePage() {
     
     setIsLoading(true);
 
-    console.log(profileData);
+    // console.log(profileData);
     try {
-      console.log('Updating complete profile:', profileData);
+      // console.log('Updating complete profile:', profileData);
       
       // Create FormData object for file upload
       const formData = new FormData();
@@ -248,22 +243,6 @@ export default function ProfilePage() {
       setIsLoading(false);
     }
   };
-
-
-  //  // Show loading while profile is being fetched
-  // if (userLoading) {
-  //   return (
-  //     <div className="bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] text-white min-h-screen flex items-center justify-center">
-  //       <div className="text-center">
-  //         <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-  //         <p>Loading profile...</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
-
-
 
   return (
   <div className="bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] text-white min-h-screen py-8 px-5 font-sans relative overflow-hidden">
