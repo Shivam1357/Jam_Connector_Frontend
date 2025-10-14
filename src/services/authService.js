@@ -8,10 +8,25 @@ export const authService = {
     return response
   },
 
-  // Register API call  
+  // // Register API call  
+  // register: async (userData) => {
+  //   const response = await apiClient.post('/auth/register', userData)
+  //   // console.log(response);
+  //   return response
+  // },
+
   register: async (userData) => {
     const response = await apiClient.post('/auth/register', userData)
-    // console.log(response);
+    return response
+  },
+
+  verifyOtp: async (email, otp) => {
+    const response = await apiClient.post('/auth/verify-otp', { email, otp })
+    return response
+  },
+
+  resendOtp: async (email) => {
+    const response = await apiClient.post('/auth/resend-otp', { email })
     return response
   },
 

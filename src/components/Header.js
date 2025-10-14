@@ -13,7 +13,7 @@ export default function Header({ user, handleLogout, isLoggingOut }) {
     { name: 'Dashboard', href: '/dashboard', icon: '🏠' },
     { name: 'Sessions', href: '/sessions', icon: '🎵' },
     { name: 'Musicians', href: '/musicians', icon: '👥' },
-    { name: 'Participations', href: '/participations', icon: '👥' },
+    { name: 'Participations', href: '/participations', icon: '🎟️' },
   ]
 
   const isActive = (path) => pathname === path

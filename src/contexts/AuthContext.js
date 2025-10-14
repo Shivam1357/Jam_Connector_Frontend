@@ -40,27 +40,83 @@ export function AuthProvider({ children }) {
     }
   }
 
+    // // Register function
+    // const register = async (userData) => {
+    //     try {
+    //         const response = await authService.register(userData)
+            
+    //         // Extract data from Spring Boot response (same format as login)
+    //         const { token, user } = response.data
+            
+    //         // Save to localStorage
+    //         localStorage.setItem('token', token)
+    //         localStorage.setItem('user', JSON.stringify(user))
+            
+    //         setUser(user)
+    //         return { success: true, user }
+    //     } catch (error) {
+    //         return { 
+    //         success: false, 
+    //         error: error.response?.data?.message || error.response?.data || 'Registration failed'
+    //         }
+    //     }
+    // }
+
     // Register function
-    const register = async (userData) => {
-        try {
-            const response = await authService.register(userData)
-            
-            // Extract data from Spring Boot response (same format as login)
-            const { token, user } = response.data
-            
-            // Save to localStorage
-            localStorage.setItem('token', token)
-            localStorage.setItem('user', JSON.stringify(user))
-            
-            setUser(user)
-            return { success: true, user }
-        } catch (error) {
-            return { 
-            success: false, 
-            error: error.response?.data?.message || error.response?.data || 'Registration failed'
-            }
-        }
+  const register = async (userData) => {
+    try {
+      const response = await authService.register(userData)
+      
+      // Registration returns message and masked email (no token yet)
+      return { 
+        success: true, 
+        message: response.data.message,
+        email: response.data.email,
+        requiresOtp: true 
+      }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.message || error.response?.data || 'Registration failed'
+      }
     }
+  }
+
+  // Add verify OTP function
+  const verifyOtp = async (email, otp) => {
+    try {
+      const response = await authService.verifyOtp(email, otp)
+      
+      // Extract token and user from response
+      const { token, user } = response.data
+      
+      // Save to localStorage
+      localStorage.setItem('token', token)
+      localStorage.setItem('user', JSON.stringify(user))
+      
+      setUser(user)
+      return { success: true, user }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.message || 'OTP verification failed'
+      }
+    }
+  }
+
+  // Add resend OTP function
+  const resendOtp = async (email) => {
+    try {
+      const response = await authService.resendOtp(email)
+      return { success: true, message: response.data.message }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.message || 'Failed to resend OTP'
+      }
+    }
+  }
+
 
    const googleLoginBackend = async (idToken) => {
     try {
@@ -117,6 +173,8 @@ export function AuthProvider({ children }) {
     loading,
     login,
     register,
+    verifyOtp,
+    resendOtp,
     logout,
     googleLoginBackend,
     forgotPassword,

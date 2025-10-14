@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function Signup() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { register, isAuthenticated, loading } = useAuth();
+  const { register, verifyOtp, resendOtp, isAuthenticated, loading } = useAuth();
   const [userType, setUserType] = useState('MUSICIAN');
   const [formData, setFormData] = useState({
     name: '',
@@ -21,6 +21,120 @@ export default function Signup() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // OTP Modal States
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otpError, setOtpError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [registeredEmail, setRegisteredEmail] = useState('');
+
+
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendTimer]);
+
+
+
+  // Handle OTP input
+  const handleOtpChange = (index, value) => {
+    if (value.match(/^[0-9]$/)) {
+      const newOtp = [...otp];
+      newOtp[index] = value;
+      setOtp(newOtp);
+      setOtpError('');
+
+      // Auto-focus next input
+      if (index < 5 && value) {
+        document.getElementById(`otp-${index + 1}`)?.focus();
+      }
+    } else if (value === '') {
+      const newOtp = [...otp];
+      newOtp[index] = '';
+      setOtp(newOtp);
+    }
+  };
+
+  // Handle OTP paste
+  const handleOtpPaste = (e) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').slice(0, 6);
+    if (pastedData.match(/^[0-9]{6}$/)) {
+      setOtp(pastedData.split(''));
+      setOtpError('');
+    }
+  };
+
+  // Handle OTP backspace
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      document.getElementById(`otp-${index - 1}`)?.focus();
+    }
+  };
+
+  // Verify OTP
+  const handleVerifyOtp = async () => {
+    const otpString = otp.join('');
+    
+    if (otpString.length !== 6) {
+      setOtpError('Please enter complete OTP');
+      return;
+    }
+
+    setIsVerifying(true);
+    setOtpError('');
+
+    try {
+      const result = await verifyOtp(registeredEmail, otpString);
+      
+      if (result.success) {
+        // Success - redirect will happen via useEffect
+        setShowOtpModal(false);
+      } else {
+        setOtpError(result.error);
+        setOtp(['', '', '', '', '', '']); // Clear OTP
+        document.getElementById('otp-0')?.focus();
+      }
+    } catch (error) {
+      setOtpError('Verification failed. Please try again.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  // Resend OTP
+  const handleResendOtp = async () => {
+    if (resendTimer > 0) return;
+
+    setIsResending(true);
+    setOtpError('');
+
+    try {
+      const result = await resendOtp(registeredEmail);
+      
+      if (result.success) {
+        setResendTimer(60);
+        setOtp(['', '', '', '', '', '']);
+        document.getElementById('otp-0')?.focus();
+      } else {
+        setOtpError(result.error);
+      }
+    } catch (error) {
+      setOtpError('Failed to resend OTP');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+
+
+
+
 
   // Redirect if already logged in
   useEffect(() => {
@@ -92,16 +206,17 @@ export default function Signup() {
         role: formData.role
       };
 
-      // Call register from AuthContext
       const result = await register(registerData);
       
-      if (result.success) {
-        // Registration successful, redirect will happen automatically via useEffect
-        // console.log('Registration successful');
-      } else {
-        console.error(result.error);
+      if (result.success && result.requiresOtp) {
+        // Show OTP modal
+        setRegisteredEmail(formData.email);
+        setShowOtpModal(true);
+        setResendTimer(60); // 60 seconds cooldown
+      } else if (!result.success) {
         setError(result.error);
       }
+
       
     } catch (error) {
       console.error('Registration error:', error);
@@ -260,6 +375,89 @@ export default function Signup() {
           </div>
         </div>
       </div>
+
+
+
+      {/* OTP Verification Modal */}
+      {showOtpModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-gray-900 to-purple-900 rounded-2xl p-8 max-w-md w-full border border-white/20 shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">📧</span>
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Verify Your Email</h3>
+              <p className="text-gray-400 text-sm">
+                We sent a 6-digit code to<br />
+                <span className="text-orange-400 font-semibold">{registeredEmail}</span>
+              </p>
+            </div>
+
+            {/* OTP Input */}
+            <div className="mb-6">
+              <div className="flex gap-2 justify-center" onPaste={handleOtpPaste}>
+                {otp.map((digit, index) => (
+                  <input
+                    key={index}
+                    id={`otp-${index}`}
+                    type="text"
+                    maxLength="1"
+                    value={digit}
+                    onChange={(e) => handleOtpChange(index, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                    className="w-12 h-14 text-center text-2xl font-bold bg-white/10 border-2 border-white/30 rounded-xl focus:border-orange-500 focus:outline-none transition-all"
+                    autoFocus={index === 0}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {otpError && (
+              <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-200 text-sm text-center">
+                {otpError}
+              </div>
+            )}
+
+            {/* Verify Button */}
+            <button
+              onClick={handleVerifyOtp}
+              disabled={isVerifying}
+              className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 rounded-xl font-semibold transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none mb-4"
+            >
+              {isVerifying ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Verifying...
+                </div>
+              ) : (
+                'Verify OTP'
+              )}
+            </button>
+
+            {/* Resend OTP */}
+            <div className="text-center">
+              <p className="text-gray-400 text-sm mb-2">
+                Didn&apos;t receive the code?
+              </p>
+              {resendTimer > 0 ? (
+                <p className="text-gray-500 text-sm">
+                  Resend available in {resendTimer}s
+                </p>
+              ) : (
+                <button
+                  onClick={handleResendOtp}
+                  disabled={isResending}
+                  className="text-orange-400 hover:text-orange-300 font-semibold text-sm transition-colors disabled:opacity-50"
+                >
+                  {isResending ? 'Sending...' : 'Resend OTP'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
