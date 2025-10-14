@@ -1,6 +1,6 @@
 // app/(protected)/layout.js
 'use client'
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotification } from '@/contexts/NotificationContext';
@@ -72,13 +72,15 @@ export default function ProtectedLayout({ children }) {
 
   // Optional: Add common UI for all protected pages
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] text-white">
-      <Header 
-        user={user}
-        isLoggingOut={isLoggingOut}
-        handleLogout={handleLogout}
-        />
-      {children}
-      </div>
+    <Suspense fallback={<p>Loading Sessions page...</p>}>
+      <div className="min-h-screen bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] text-white">
+        <Header 
+          user={user}
+          isLoggingOut={isLoggingOut}
+          handleLogout={handleLogout}
+          />
+        {children}
+        </div>
+      </Suspense>
   );
 }
