@@ -266,7 +266,7 @@ export default function SessionManagePage({ params }) {
                               </p>
                               {request.message && (
                                 <div className="mt-2 bg-white/5 p-2 sm:p-3 rounded-lg">
-                                  <p className="text-gray-300 text-xs sm:text-sm line-clamp-2 sm:line-clamp-none">"{request.message}"</p>
+                                  <p className="text-gray-300 text-xs sm:text-sm line-clamp-2 sm:line-clamp-none">&quot;{request.message}&quot;</p>
                                 </div>
                               )}
                             </div>
