@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-export default function MusiciansLayout({ children }) {
+export default function SignupLayout({ children }) {
   return (
     <Suspense fallback={<p>Loading Signup page...</p>}>
       {children}
