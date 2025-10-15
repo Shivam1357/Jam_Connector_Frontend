@@ -1,5 +1,6 @@
 // src/app/profile/page.js - Updated to use UserContext
-'use client'
+'use client';
+export const dynamic = "force-dynamic";
 import React, { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';

@@ -1,5 +1,6 @@
 // src/app/sessions/[id]/page.js
-'use client'
+'use client';
+export const dynamic = "force-dynamic";
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'

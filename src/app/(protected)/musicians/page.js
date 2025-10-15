@@ -1,5 +1,6 @@
 "use client"
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+export const dynamic = "force-dynamic";
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotification } from '@/contexts/NotificationContext';
