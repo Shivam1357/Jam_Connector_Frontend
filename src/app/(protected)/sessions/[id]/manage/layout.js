@@ -1,5 +1,8 @@
-"use client";
 import { Suspense } from "react";
+
+export const metadata = {
+  title: "Manage Participants" 
+};
 
 export default function ManageLayout({ children }) {
   return (

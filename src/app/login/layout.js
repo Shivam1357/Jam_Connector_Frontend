@@ -1,5 +1,8 @@
-"use client";
 import { Suspense } from "react";
+
+export const metadata = {
+  title: "Login" 
+};
 
 export default function LoginLayout({ children }) {
   return (

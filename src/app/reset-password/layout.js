@@ -1,5 +1,8 @@
-"use client";
 import { Suspense } from "react";
+
+export const metadata = {
+  title: "Reset Password" 
+};
 
 export default function ResetPassLayout({ children }) {
   return (

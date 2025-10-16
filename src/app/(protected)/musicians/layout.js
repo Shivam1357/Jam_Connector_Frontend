@@ -1,5 +1,8 @@
-"use client";
 import { Suspense } from "react";
+
+export const metadata = {
+  title: "Musicians" 
+};
 
 export default function MusiciansLayout({ children }) {
   return (

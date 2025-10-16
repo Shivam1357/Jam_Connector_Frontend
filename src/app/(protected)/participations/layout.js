@@ -1,5 +1,8 @@
-"use client";
 import { Suspense } from "react";
+
+export const metadata = {
+  title: "My Participations" 
+};
 
 export default function ParticipationsLayout({ children }) {
   return (

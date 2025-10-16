@@ -1,5 +1,8 @@
-"use client";
 import { Suspense } from "react";
+
+export const metadata = {
+  title: "SignUp" 
+};
 
 export default function SignupLayout({ children }) {
   return (

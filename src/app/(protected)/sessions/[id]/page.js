@@ -3,15 +3,16 @@
 export const dynamic = "force-dynamic";
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { sessionService } from '@/services/sessionService'
 import JamSessionImage from '@/components/JamSessionImage'
-import SocialMediaLinks from '@/components/SocialMediaLinks'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatDuration } from '@/hooks/formatDuration'
 import HostModal from '@/components/HostModal'
 import ProfilePictureImage from '@/components/ProfilePictureImage'
-import { useNotification } from '@/contexts/NotificationContext'
+import { useNotification } from '@/contexts/NotificationContext';
+
+
+
 
 export default function SessionPage({ params }) {
   const { id } = use(params);
