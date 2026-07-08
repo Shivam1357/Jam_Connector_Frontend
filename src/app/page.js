@@ -1,68 +1,13 @@
-'use client'
-
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import ScrollEffects from "@/components/LandingHomePage/ScrollEffects";
+import { FEATURES } from "@/data/landingPage_features";
+import Link from "next/link";
 
 export default function Home() {
-  const router = useRouter();
-  const [scrollY, setScrollY] = useState(0);
-
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const handleJoinMusician = () => {
-    router.push('/signup?type=musician');
-  };
-
-  const handleJoinListener = () => {
-    router.push('/signup?type=listener');
-  };
-
-  const features = [
-    {
-      icon: "🎵",
-      title: "Discover Musicians",
-      description: "Find talented artists by genre, instrument, and location",
-      gradient: "from-orange-500 to-red-600"
-    },
-    {
-      icon: "🎸",
-      title: "Create Jam Sessions",
-      description: "Host or join live music sessions in your area",
-      gradient: "from-purple-500 to-pink-600"
-    },
-    {
-      icon: "👥",
-      title: "Build Your Network",
-      description: "Connect with musicians and grow your community",
-      gradient: "from-blue-500 to-cyan-600"
-    },
-    {
-      icon: "📍",
-      title: "Location-Based",
-      description: "Find sessions and musicians near you",
-      gradient: "from-green-500 to-emerald-600"
-    },
-    {
-      icon: "🎤",
-      title: "Showcase Your Talent",
-      description: "Create a profile and share your musical journey",
-      gradient: "from-yellow-500 to-orange-600"
-    },
-    // {
-    //   icon: "🔔",
-    //   title: "Real-Time Updates",
-    //   description: "Get notified about new sessions and invitations",
-    //   gradient: "from-indigo-500 to-purple-600"
-    // }
-  ];
-
+  const features = FEATURES;
 
   return (
+    <>
+    <ScrollEffects/>
     <div className="bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2a] to-[#2a0a3a] text-white overflow-hidden">
       {/* Animated background elements */}
       <div className="fixed inset-0 opacity-20 pointer-events-none">
@@ -85,12 +30,18 @@ export default function Home() {
               <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
               <a href="#how-it-works" className="text-gray-300 hover:text-white transition-colors">How it Works</a>
               <a href="#stats" className="text-gray-300 hover:text-white transition-colors">Community</a>
-              <button 
+              <Link
+                href="/signup?type=listener"
+                className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-colors border border-white/20"
+              >
+                Sign In
+              </Link>
+              {/* <button 
                 onClick={() => router.push('/login')}
                 className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-colors border border-white/20"
               >
                 Sign In
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
@@ -129,8 +80,10 @@ export default function Home() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <button 
-              onClick={handleJoinMusician}
+            {/* <button 
+              onClick={handleJoinMusician} */}
+            <Link
+              href="/signup?type=musician"
               className="group relative bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white px-8 py-4 rounded-2xl text-lg font-bold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/50 border-2 border-orange-400/30"
             >
               <span className="relative z-10 flex items-center justify-center gap-3">
@@ -139,10 +92,13 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </span>
-            </button>
+            </Link>
+            {/* </button> */}
             
-            <button 
-              onClick={handleJoinListener}
+            {/* <button 
+              onClick={handleJoinListener} */}
+            <Link
+              href="/signup?type=listener"
               className="group relative bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white px-8 py-4 rounded-2xl text-lg font-bold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/50 border-2 border-purple-400/30"
             >
               <span className="relative z-10 flex items-center justify-center gap-3">
@@ -151,7 +107,8 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </span>
-            </button>
+            </Link>
+            {/* </button> */}
           </div>
 
           {/* Hero Image */}
@@ -296,12 +253,19 @@ export default function Home() {
             Join JamConnect today and connect with musicians who share your passion
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button 
+            <Link
+              href="/signup?type=musician"
+              className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white px-10 py-5 rounded-2xl text-xl font-bold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/50"
+            >
+              Get Started - It's Free
+            </Link>
+
+            {/* <button 
               onClick={handleJoinMusician}
               className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white px-10 py-5 rounded-2xl text-xl font-bold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/50"
             >
               {"Get Started - It's Free"}
-            </button>
+            </button> */}
           </div>
         </div>
       </section>
@@ -315,5 +279,6 @@ export default function Home() {
         </div>
       </footer>
     </div>
+    </>
   );
 }
