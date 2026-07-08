@@ -257,7 +257,7 @@ export default function Home() {
               href="/signup?type=musician"
               className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white px-10 py-5 rounded-2xl text-xl font-bold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/50"
             >
-              Get Started - It's Free
+              Get Started - It&apos;s Free
             </Link>
 
             {/* <button 
