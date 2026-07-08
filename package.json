@@ -13,9 +13,9 @@
     "@vercel/analytics": "^1.5.0",
     "axios": "^1.11.0",
     "cloudinary-build-url": "^0.2.4",
-    "next": "15.5.2",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "next": "^16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "react-icons": "^5.5.0"
   },
   "devDependencies": {
